@@ -21,13 +21,13 @@ RL Technical guide
 [5](#flow-of-data-in-actor-critic-network)](#flow-of-data-in-actor-critic-network)
 
 [Revisiting Gaussian Mixture Critics in Off-Policy RL
-[6](#_Toc156312135)](#_Toc156312135)
+[6](#_Toc156997637)](#_Toc156997637)
 
 [TLDR: [6](#tldr)](#tldr)
 
 [Technical points: [6](#technical-points)](#technical-points)
 
-[Main points: [6](#main-points)](#main-points)
+[Main points: [7](#main-points)](#main-points)
 
 [How the paper impacts PPO
 [7](#how-the-paper-impacts-ppo)](#how-the-paper-impacts-ppo)
@@ -38,7 +38,7 @@ RL Technical guide
 [7](#referenced-papers-for-further-reading)](#referenced-papers-for-further-reading)
 
 [GMAC: A Distributional Perspective on Actor-Critic Framework
-[7](#_Toc156312142)](#_Toc156312142)
+[7](#_Toc156997644)](#_Toc156997644)
 
 [TLDR: [7](#tldr-1)](#tldr-1)
 
@@ -54,7 +54,8 @@ RL Technical guide
 [Referenced papers for further reading:
 [9](#referenced-papers-for-further-reading-1)](#referenced-papers-for-further-reading-1)
 
-[Multi-Agent RL [10](#_Toc156312149)](#_Toc156312149)
+[Reinforcement Learning
+[10](#reinforcement-learning)](#reinforcement-learning)
 
 [Learning Types [10](#learning-types)](#learning-types)
 
@@ -66,9 +67,9 @@ RL Technical guide
 [Agent modelling [11](#agent-modelling)](#agent-modelling)
 
 [Policy-based learning
-[11](#policy-based-learning)](#policy-based-learning)
+[12](#policy-based-learning)](#policy-based-learning)
 
-[Regret matching [11](#regret-matching)](#regret-matching)
+[Regret matching [12](#regret-matching)](#regret-matching)
 
 [Neural Networks in MARL
 [12](#neural-networks-in-marl)](#neural-networks-in-marl)
@@ -77,10 +78,10 @@ RL Technical guide
 [13](#feedforward-neural-networks)](#feedforward-neural-networks)
 
 [Deep reinforcement learning
-[13](#deep-reinforcement-learning)](#deep-reinforcement-learning)
+[14](#deep-reinforcement-learning)](#deep-reinforcement-learning)
 
 [Incorporating neural networks into RL
-[13](#incorporating-neural-networks-into-rl)](#incorporating-neural-networks-into-rl)
+[14](#incorporating-neural-networks-into-rl)](#incorporating-neural-networks-into-rl)
 
 [Moving target problem
 [14](#moving-target-problem)](#moving-target-problem)
@@ -88,36 +89,79 @@ RL Technical guide
 [Correlation of experiences
 [15](#correlation-of-experiences)](#correlation-of-experiences)
 
-[Some terminology [15](#some-terminology)](#some-terminology)
+[Common algorithms [16](#common-algorithms)](#common-algorithms)
+
+[DQN (Deep Q-networks) / Rainbow
+[16](#dqn-deep-q-networks-rainbow)](#dqn-deep-q-networks-rainbow)
+
+[Policy-Gradient Algorithms
+[16](#policy-gradient-algorithms)](#policy-gradient-algorithms)
+
+[Actor-Critic Algorithms
+[17](#actor-critic-algorithms)](#actor-critic-algorithms)
+
+[Multi-agent RL [19](#multi-agent-rl)](#multi-agent-rl)
+
+[Centralized Training and Execution
+[19](#centralized-training-and-execution)](#centralized-training-and-execution)
+
+[(CTDE) Centralized training with decentralized execution
+[20](#ctde-centralized-training-with-decentralized-execution)](#ctde-centralized-training-with-decentralized-execution)
+
+[Joint action learning with agent modeling
+[23](#joint-action-learning-with-agent-modeling)](#joint-action-learning-with-agent-modeling)
+
+[Environments with homogeneous agents
+[25](#environments-with-homogeneous-agents)](#environments-with-homogeneous-agents)
+
+[Policy Self-Play in Zero-Sum Games
+[26](#policy-self-play-in-zero-sum-games)](#policy-self-play-in-zero-sum-games)
+
+[Decentralized Training and Execution
+[27](#decentralized-training-and-execution)](#decentralized-training-and-execution)
+
+[Independent learning
+[27](#independent-learning)](#independent-learning)
+
+[Some terminology [29](#some-terminology)](#some-terminology)
 
 [Correlated equilibrium
-[15](#correlated-equilibrium)](#correlated-equilibrium)
+[29](#correlated-equilibrium)](#correlated-equilibrium)
 
-[Nash equilibrium [15](#nash-equilibrium)](#nash-equilibrium)
+[Nash equilibrium [29](#nash-equilibrium)](#nash-equilibrium)
 
-[ɛ-Nash equilibrium [16](#ɛ-nash-equilibrium)](#ɛ-nash-equilibrium)
+[ɛ-Nash equilibrium [29](#ɛ-nash-equilibrium)](#ɛ-nash-equilibrium)
 
-[Pareto-Optimality [16](#pareto-optimality)](#pareto-optimality)
+[Pareto-Optimality [29](#pareto-optimality)](#pareto-optimality)
 
-[Welfare-optimal [16](#welfare-optimal)](#welfare-optimal)
+[Welfare-optimal [29](#welfare-optimal)](#welfare-optimal)
 
-[Fairness-optimal [16](#fairness-optimal)](#fairness-optimal)
+[Fairness-optimal [29](#fairness-optimal)](#fairness-optimal)
 
-[Regret [16](#regret)](#regret)
+[Regret [29](#regret)](#regret)
 
-[Zero-sum game [16](#zero-sum-game)](#zero-sum-game)
+[Zero-sum game [30](#zero-sum-game)](#zero-sum-game)
 
-[Stochastic [16](#stochastic)](#stochastic)
+[Stochastic [30](#stochastic)](#stochastic)
 
 [\"Conditioned on the state\"
-[16](#conditioned-on-the-state)](#conditioned-on-the-state)
+[30](#conditioned-on-the-state)](#conditioned-on-the-state)
 
 [Value of information
-[16](#value-of-information)](#value-of-information)
+[30](#value-of-information)](#value-of-information)
 
-[Neural network [17](#neural-network)](#neural-network)
+[Partially observable environment
+[30](#partially-observable-environment)](#partially-observable-environment)
 
-[Deep RL [18](#deep-rl)](#deep-rl)
+[Difference rewards [30](#difference-rewards)](#difference-rewards)
+
+[Aristocrat utility [30](#aristocrat-utility)](#aristocrat-utility)
+
+[Monotonic [30](#monotonic)](#monotonic)
+
+[Neural network [30](#neural-network)](#neural-network)
+
+[Deep RL [31](#deep-rl)](#deep-rl)
 
 # General outlines of critic-actor methods (PPO): {#general-outlines-of-critic-actor-methods-ppo .unnumbered}
 
@@ -163,7 +207,7 @@ RL Technical guide
         towards higher quality actions
 
 ![Deep Reinforcement Learning- Deep Q
-Learning](media/image3.png){width="3.75in" height="2.625in"}
+Learning](media/media/image3.png){width="3.75in" height="2.625in"}
 
 -   In a technical sense, the GAE is using a discounted estimation of k
     number of advantage functions into the future to gather information
@@ -196,7 +240,7 @@ How much the value function was off
 
 Returns
 
-![](media/image40.emf){width="0.6055555555555555in"
+![](media/media/image40.emf){width="0.6055555555555555in"
 height="5.138888888888889e-2in"}Returns
 
 Go to next state S~k+1~
@@ -315,7 +359,7 @@ State and Action:
         between the predicted and empirical distributions, leading to
         more effective learning of the value function.
 
-# [[]{#_Toc156312135 .anchor}Revisiting Gaussian Mixture Critics in Off-Policy RL](https://arxiv.org/pdf/2204.10256.pdf) {#revisiting-gaussian-mixture-critics-in-off-policy-rl .unnumbered}
+# [[]{#_Toc156997637 .anchor}Revisiting Gaussian Mixture Critics in Off-Policy RL](https://arxiv.org/pdf/2204.10256.pdf) {#revisiting-gaussian-mixture-critics-in-off-policy-rl .unnumbered}
 
 ## TLDR: {#tldr .unnumbered}
 
@@ -418,14 +462,13 @@ State and Action:
 
     -   Uses PPO and the Cramèr distance
 
-# [[]{#_Toc156312142 .anchor}GMAC: A Distributional Perspective on Actor-Critic Framework](https://arxiv.org/pdf/2105.11366.pdf) {#gmac-a-distributional-perspective-on-actor-critic-framework .unnumbered}
+# [[]{#_Toc156997644 .anchor}GMAC: A Distributional Perspective on Actor-Critic Framework](https://arxiv.org/pdf/2105.11366.pdf) {#gmac-a-distributional-perspective-on-actor-critic-framework .unnumbered}
 
 ## TLDR: {#tldr-1 .unnumbered}
 
 -   Improves critic performance by better representation learning; their
     sample replacement methodology is to have a "n-step return" method
-    but with distributions instead of a trajectory of expected values it
-    is a trajectory of value distributions
+    but with distributions instead of a trajectory of expected values
 
 ## Technical points: {#technical-points-1 .unnumbered}
 
@@ -618,6 +661,52 @@ State 1 (unobserved)
     -   Demonstrates how to take in a collection of values for certain
         statistics and return a probability distribution with those
         statistic values
+
+# Scaling Multi-Agent RL with Selective Parameter Sharing {#scaling-multi-agent-rl-with-selective-parameter-sharing .unnumbered}
+
+## TLDR: {#tldr-2 .unnumbered}
+
+-   Use of Selective Parameter Sharing (SePS) to share parameters across
+    agents that may benefit from parameter training based on their goals
+    and abilities
+
+-   They claim that using SePS increases sample efficiency, leads to a
+    convergence of higher returns and quicker convergence overall
+
+-   
+
+## Technical points: {#technical-points-2 .unnumbered}
+
+## Main points: {#main-points-2 .unnumbered}
+
+-   Sharing parameters effectiveness is highly dependent on the
+    environment
+
+-   Instead of sharing parameters across all agents, they developed a
+    method that aids in identifying select agents that will benefit from
+    parameter sharing based on their abilities and goals
+
+-   Have a single neural network represent the roles of different agent
+    functions proves to be a bottle neck such as in the case of waiters
+    and cooks in a restaurant
+
+    -   Agents in certain roles forget information that is a part of
+        other agent's roles and therefore inhibit the learning of other
+        agents
+
+-   Break the agents into partitioned sets where K \< N but without
+    knowing K nor the partitioning
+
+    -   Where K is the number of sets and N is the number of agents
+
+    -   Each agent in a cluster k uses the same updates as the shared
+        policy π~k~
+
+    -   
+
+## Future work: {#future-work-2 .unnumbered}
+
+## Referenced paper for further reading: {#referenced-paper-for-further-reading .unnumbered}
 
 # Reinforcement Learning {#reinforcement-learning .unnumbered}
 
@@ -837,7 +926,7 @@ Restore
     -   *f~k~*~,*u*~​(*x*;*θ^k^~u~*​)=*g~k~*​(**w**^⊤^*x*+*b*)
 
 ![A picture containing text, gauge, device Description automatically
-generated](media/image5.png){width="2.3298490813648294in"
+generated](media/media/image5.png){width="2.3298490813648294in"
 height="1.196408573928259in"}
 
 -   Activation functions are used in neural networks to cause
@@ -867,7 +956,7 @@ height="1.196408573928259in"}
                 for understanding backpropagation
 
 ![Diagram, text Description automatically
-generated](media/image6.png){width="3.096548556430446in"
+generated](media/media/image6.png){width="3.096548556430446in"
 height="1.68420384951881in"}
 
 -   Recurrent neural networks are designed to process sequential data
@@ -899,7 +988,7 @@ height="1.68420384951881in"}
             90
 
 ![Icon Description automatically generated with medium
-confidence](media/image7.png){width="3.194241032370954in"
+confidence](media/media/image7.png){width="3.194241032370954in"
 height="1.33623687664042in"}
 
 -   Loss function in this case is still the squared difference between
@@ -1051,7 +1140,7 @@ height="1.33623687664042in"}
     learning, distributional RL, and noisy nets
 
 ![Text Description automatically
-generated](media/image8.png){width="2.8152777777777778in"
+generated](media/media/image8.png){width="2.8152777777777778in"
 height="2.1041666666666665in"}
 
 ### Policy-Gradient Algorithms {#policy-gradient-algorithms .unnumbered}
@@ -1097,7 +1186,7 @@ height="2.1041666666666665in"}
     old data it will be learning "bad habits" therefore it has to be
     on-policy
 
-![](media/image9.png){width="2.303198818897638in"
+![](media/media/image9.png){width="2.303198818897638in"
 height="0.371994750656168in"}
 
 -   The numerator represents the gradient of the policy pointing in the
@@ -1137,7 +1226,7 @@ height="0.371994750656168in"}
         -   The takeaway is that a balance between methods can have
             moderately low levels of each bias and variance
 
-![](media/image10.png){width="3.0428904199475064in"
+![](media/media/image10.png){width="3.0428904199475064in"
 height="1.5520034995625547in"}
 
 #### A2C: Advantage Actor-Critic {#a2c-advantage-actor-critic .unnumbered}
@@ -1386,7 +1475,7 @@ height="1.5520034995625547in"}
     of inaccessible information such as the full state of the
     environment and any external data
 
-![](media/image11.png){width="2.5150962379702535in"
+![](media/media/image11.png){width="2.5150962379702535in"
 height="1.0002121609798775in"}
 
 -   I think in this case we could even use image data from each of the
@@ -1445,7 +1534,7 @@ height="1.0002121609798775in"}
             the value function
 
 ![Diagram Description automatically generated with low
-confidence](media/image12.png){width="2.489048556430446in"
+confidence](media/media/image12.png){width="2.489048556430446in"
 height="0.8889840332458443in"}
 
 -   Instead of calculating values of all joint actions across all
@@ -1679,9 +1768,340 @@ Choose random batch from buffer
         about the policies of other agents as well as the uncertainty of
         these beliefs
 
-#### Environments with homogeneous agents {#environments-with-homogeneous-agents .unnumbered}
+-   Agnostic to the MARL algorithm used to learn the policies of agents
 
--   
+***[Encoder-decoder flow path]{.underline}***
+
+-   Agent i has an encoder to represent agent j's policy
+
+-   The decoder returns the predicted policy's probability actions
+
+-   Agent j takes an action (actual action)
+
+-   This "actual action" is compared to the model prediction probability
+    of this "actual action"
+
+-   The loss is the difference between the actual value (100% since it's
+    a label) and the model's predicted probability value
+
+Δ(predicted -- actual)
+
+Agent i history
+
+Encoder
+
+Representation of other agent's policy
+
+Decoder
+
+Agent i policy
+
+Predicted policy of agent j
+
+0.09
+
+0.019
+
+0.027
+
+0.139
+
+0.290
+
+.
+
+.
+
+.
+
+0.23
+
+0.012
+
+0.390
+
+0.001
+
+0.089
+
+.
+
+.
+
+.
+
+0.020
+
+0.500
+
+0.002
+
+0.000
+
+0.084
+
+.
+
+.
+
+.
+
+Predicted Agent 1
+
+Predicted Agent 2
+
+Predicted Agent 3
+
+Choose action
+
+Choose action
+
+Choose action
+
+Actual action
+
+Actual action
+
+Actual action
+
+Loss of timestep t
+
+---Agent j
+
+---Agent i
+
+Variance for each action
+
+Basic agent policy
+
+Mean for each action
+
+Normal distribution of each action possible
+
+Log(action probs)
+
+Roll
+
+Pitch
+
+Yaw
+
+-   The encoder representation can be used to condition the policy and
+    the value function of each agent
+
+***[Gradient flow path]{.underline}***
+
+-   The backpropagation step will include updating the gradients in the
+    decoder and encoder networks
+
+    -   This will change the policy of Agent i since the gradients are
+        being updated in the encoder network in which the output is
+        given to the agent's policy as external information along with
+        the history of agent i
+
+Δ(predicted -- actual)
+
+Agent i history
+
+Encoder
+
+Representation of other agent's policy
+
+Decoder
+
+Agent i policy
+
+Predicted policy of agent j
+
+0.09
+
+0.019
+
+0.027
+
+0.139
+
+0.290
+
+.
+
+.
+
+.
+
+0.23
+
+0.012
+
+0.390
+
+0.001
+
+0.089
+
+.
+
+.
+
+.
+
+0.020
+
+0.500
+
+0.002
+
+0.000
+
+0.084
+
+.
+
+.
+
+.
+
+Predicted Agent 1
+
+Predicted Agent 2
+
+Predicted Agent 3
+
+Choose action
+
+Choose action
+
+Choose action
+
+Actual action
+
+Actual action
+
+Actual action
+
+Loss of timestep t
+
+Backpropagation path
+
+### Environments with homogeneous agents {#environments-with-homogeneous-agents .unnumbered}
+
+-   Agents share the same or similar capabilities and characteristics
+    which can include history, actions, observations, and rewards
+
+    -   Nearly identical agents
+
+-   Weakly homogenous agents vs strongly homogenous agents
+
+    -   Weakly homogenous agents can execute different actions compared
+        to the optimal joint policy in a specific state between agents
+
+    -   Strongly homogenous agents execute the same actions under a
+        joint policy that is their same local policy in a specific state
+
+#### Parameter Sharing {#parameter-sharing .unnumbered}
+
+-   The policy network's parameters are the same for all agents which
+    gives strongly homogenous agents
+
+    -   Observations, actions and rewards will update the homogenous
+        network parameters
+
+    -   Being that the overall network parameters are learning from each
+        agent's experiences the policy is learning on a larger, and more
+        diverse, set of trajectories compared to an agent learning from
+        only its own experience
+
+-   Sharing an agent's index might be beneficial in agents learning
+    their own distinct behaviors, but papers show that this is not the
+    case
+
+    -   They instead show that using [Selective Parameter
+        Sharing](https://arxiv.org/pdf/2102.07475.pdf) (SePS) which
+        identifies agents that may benefit from sharing parameters by
+        partitioning them based on their abilities and goals
+
+        -   Code
+            [here](https://github.com/uoe-agents/seps/blob/main/model.py)
+
+#### Experience Sharing {#experience-sharing .unnumbered}
+
+-   Sharing the experienced trajectories among agents and train a
+    different set of parameters per agent
+
+    -   This relaxes the strongly homogenous agents and allows for
+        agents to learn different policies
+
+    -   In IDQN the replay buffer D can now store shared trajectories of
+        all agents where an agent can pull a trajectory from a whole
+        slue of experiences from other agents as well (this can only
+        work if the agents are weakly homogenous)
+
+-   To include this in the continuous space we can use importance
+    sampling to correct for transitions collected by other algorithms
+    and apply the idea of experience sharing to on-policy settings
+
+    -   This is done by allowing an agent to learn from its own sample
+        trajectory, but also from the trajectories of the other agents
+        given that this is looked at as off-policy (this is in reference
+        to the trajectories are from different policies other than the
+        current agent's policy that is being optimized)
+
+-   The benefit of experience sharing over parameter sharing is that
+    each agent learns uniformly as opposed to agents learning on their
+    own
+
+    -   This, in turn, allows agent's actions to be in coordination
+        resulting in sample efficiency
+
+### Policy Self-Play in Zero-Sum Games {#policy-self-play-in-zero-sum-games .unnumbered}
+
+-   Characterized by three primary attributes:
+
+    -   Sparse reward system: the game / event terminates after a finite
+        number of moves at which point the victor receives some sort of
+        sparse reward like +1, the losing player receives -1, or both
+        players receive 0 for a draw
+
+    -   Large action space: agents can typically choose from many
+        actions which leads to a large branching in the search space
+
+        -   Examples of this is the many different moves on a chess
+            board or go board
+
+    -   Long horizon: reaching a terminal state requires a large amount
+        of timesteps
+
+        -   The agents may have to explore long sequences of actions
+            before they receive any reward
+
+-   This can be thought of as a tree in which each node is a state of
+    the game
+
+    -   Each outgoing edge can be thought of as a *possible* action
+        choice for whose turn it is
+
+        -   The tree can either be very wide where there are many
+            actions leading to a large branching factor
+
+        -   The tree can also be very deep where this indicates to get
+            to a terminal state requires many actions to get to a
+            terminal state
+
+    -   Instead of exploring each tree in full, one can involve
+        heuristic search algorithms such as alpha-beta minimax search
+
+### Population-Based Training {#population-based-training .unnumbered}
+
+-   Steps for population-based training:
+
+    -   Initialize population policy П~i~^1^ for each agent i
+
+        -   Each population may start with a single uniform policy that
+            selects actions uniform-randomly
+
+    -   Evaluate populations: in generation k, evaluate the current
+        policies π~i~ ∈ П~i~^k^ in each agent's population to measure
+        the performance of each policy based on expected returns
 
 ## Decentralized Training and Execution {#decentralized-training-and-execution .unnumbered}
 
@@ -1823,9 +2243,9 @@ o\eta(t,1) & \ldots & o\eta(t,K)
             what is the intersection point between the policy parameters
             and the k^th^ environment since L(θ\|k) = P(θ∩k) / P(k)
 
-Critic Parameters
-
 K^th^ environment
+
+Critic Parameters
 
 What does this intersection point represent?
 
@@ -1980,6 +2400,15 @@ What does this intersection point represent?
 
     -   If it is non-increasing it is either decreasing or constant at
         every point on its domain
+
+### Alpha-beta minimax search {#alpha-beta-minimax-search .unnumbered}
+
+-   A search algorithm that seeks to decrease the number of nodes that
+    are evaluated by the minimax algorithm in its search tree
+
+    -   i.e. the algorithm will eliminate trees that are equivalent to a
+        previous tree or of lesser value than that of previous trees
+        since neither will be able to influence the final result
 
 ### Neural network {#neural-network .unnumbered}
 
