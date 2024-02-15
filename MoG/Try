@@ -1,0 +1,11 @@
+Try:
+--clamping the exp term like so
+first_term = sqrt_2_over_pi * torch.sqrt(sum_vars) * torch.exp((-diff_mu**2) / (2*sum_vars))
+where I could do exp_term = torch.clamp(((-diff_mu**2) / (2*sum_vars)), -1e-5, 1e4)
+--since this term was shown to be -1e-9
+Try:
+--applying torch.abs(diff_mu) when doing torch.log(first_term)
+Try:
+--the log trick where you can apply an offset after doing torch.log(torch.abs(diff_mu)) + torch.log(added_value)
+Try:
+--work the math to try some sort of log_sumexp trick
