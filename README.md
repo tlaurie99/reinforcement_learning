@@ -1,4 +1,4 @@
-Markup: # Make value functions more robust by using mixture of gaussians
+# Make value functions more robust by using mixture of gaussians
 
 Markup: ## Two approaches within this repository:
 Markup : - Energy distance between target and predicted distributions
