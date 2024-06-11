@@ -40,7 +40,7 @@ class ENNWrapper(nn.Module):
         super(ENNWrapper, self).__init__()
         """
         Args:
-            base_network: network to wrap the ENN with
+            base_network: network that is wrapped with the ENN
             z_dim: number of dimensions for the multivariate gaussian distribution
                 -- This can be seen as the number of models (mimicking the ensemble approach with noise)
             enn_layer: layer size for the enn
