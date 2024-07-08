@@ -13,13 +13,17 @@ class SimpleCustomTorchModel(TorchModelV2, nn.Module):
         nn.Module.__init__(self)
 
         self.critic_fcnet = TorchFC(obs_space, action_space, 1, model_config, name + "_critic")
-        self.actor_fcnet = TorchFC(obs_space, action_space, action_space.shape[0]*2, model_config, name + 
+        self.actor_means = TorchFC(obs_space, action_space, action_space.shape[0], model_config, name + 
                                    "_actor")
+        self.log_std_init = model_config['custom_model_config'].get('log_std_init', 0)
+        self.log_stds = nn.Parameter(torch.ones(action_space.shape[0]) * self.log_std_init, requires_grad = True)
         self.log_step = 0
 
     def forward(self, input_dict, state, seq_lens):
         # Get the model output
-        logits, _ = self.actor_fcnet(input_dict, state, seq_lens)
+        means, _ = self.actor_means(input_dict, state, seq_lens)
+        log_stds = self.log_stds.expand_as(means)
+        logits = torch.cat((means, log_stds), dim = -1)
         self.value, _ = self.critic_fcnet(input_dict, state, seq_lens)
         self.log_step += 1
         
