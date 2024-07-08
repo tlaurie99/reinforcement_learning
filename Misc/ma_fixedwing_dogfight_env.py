@@ -5,12 +5,11 @@ from typing import Any
 
 import numpy as np
 from gymnasium import spaces
-from ray.rllib.env.multi_agent_env import MultiAgentEnv
 
 from PyFlyt.pz_envs.fixedwing_envs.ma_fixedwing_base_env import MAFixedwingBaseEnv
 
 
-class MAFixedwingDogfightEnv(MAFixedwingBaseEnv, MultiAgentEnv):
+class MAFixedwingDogfightEnv(MAFixedwingBaseEnv):
     """Base Dogfighting Environment for the Acrowing model using the PettingZoo API.
 
     Args:
@@ -81,7 +80,7 @@ class MAFixedwingDogfightEnv(MAFixedwingBaseEnv, MultiAgentEnv):
         self._observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(self.combined_space.shape[0] + 1 + 8,),
+            shape=(self.combined_space.shape[0] + 2 + 12,), #2 health not one
         )
 
     def observation_space(self, agent: Any = None) -> spaces.Box:
@@ -236,10 +235,23 @@ class MAFixedwingDogfightEnv(MAFixedwingBaseEnv, MultiAgentEnv):
         flat_opponent_attitude = opponent_attitudes.reshape(2, -1)
         health = np.expand_dims(self.health, axis=-1)
 
+
+        aux_states = []
+        for agent_id in range(2):  # Assuming 2 agents
+            aux_state = self.compute_auxiliary_by_id(agent_id)
+            # Ensure aux_state has compatible dimensions
+            if aux_state.ndim == 1:
+                aux_state = aux_state.reshape(1, -1)
+            aux_states.append(aux_state)
+
+        # Stack aux_states vertically to get the shape (2, 6)
+        aux_states = np.vstack(aux_states)
+
         # form the state vector
         self.observations = np.concatenate(
             [
                 flat_attitude,
+                aux_states,
                 health,
                 flat_opponent_attitude,
                 health[::-1],
@@ -301,11 +313,8 @@ class MAFixedwingDogfightEnv(MAFixedwingBaseEnv, MultiAgentEnv):
         """Computes the termination, truncation, and reward of the current timestep."""
         term, trunc, info = super().compute_base_term_trunc_info_by_id(agent_id)
 
-        # Count the number of active agents (health > 0)
-        num_active_agents = np.sum(self.health > 0)
-    
-        # Terminal if other agent is dead
-        term |= num_active_agents < 2
+        # terminal if other agent is dead
+        term |= self.num_agents < 2
 
         # don't recompute if we've already done it
         if self.last_rew_time != self.aviary.elapsed_time:
@@ -383,6 +392,7 @@ class MAFixedwingDogfightEnv(MAFixedwingBaseEnv, MultiAgentEnv):
             ]:
         """
         returns = super().step(actions=actions)
+
         # colour the gunsights conditionally
         if self.render_mode and not np.all(self.previous_hits == self.current_hits):
             self.previous_hits = self.current_hits.copy()
