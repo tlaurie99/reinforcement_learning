@@ -68,12 +68,6 @@ class CustomLossPolicy(PPOTorchPolicy):
     
         logits, state = model(train_batch)
         curr_action_dist = dist_class(logits, model)
-        # logits_out, state = model(train_batch)
-        # means, log_stds = torch.chunk(logits_out, chunks=2, dim=-1)
-        # log_stds_clipped = torch.clamp(log_stds, min=-15,)
-        # logits = torch.cat((means, log_stds_clipped), dim=-1)
-        # curr_action_dist = dist_class(logits, model)
-
         # RNN case: Mask away 0-padded chunks at end of time axis.
         if state:
             B = len(train_batch[SampleBatch.SEQ_LENS])
@@ -98,30 +92,10 @@ class CustomLossPolicy(PPOTorchPolicy):
             train_batch[SampleBatch.ACTION_DIST_INPUTS], model
         )
 
-        epsilon = 1e-8
-
-        logp_actions = curr_action_dist.logp(train_batch[SampleBatch.ACTIONS])
-        logp_old_actions = train_batch[SampleBatch.ACTION_LOGP]
-
-        if torch.isnan(logp_actions).any():
-            print("NaN detected in current action log probabilities")
-            print("logp_actions:", logp_actions)
-            raise ValueError("NaN detected in current action log probabilities")
-        
-        if torch.isnan(logp_old_actions).any():
-            print("NaN detected in old action log probabilities")
-            print("logp_old_actions:", logp_old_actions)
-            raise ValueError("NaN detected in old action log probabilities")
-        
-        logp_ratio = torch.exp(logp_actions + epsilon - logp_old_actions + epsilon)
-        
-        # Check for NaNs in logp_ratio and log values if found
-        if torch.isnan(logp_ratio).any():
-            print("NaN detected in logp ratio calculation")
-            print("logp_actions:", logp_actions)
-            print("logp_old_actions:", logp_old_actions)
-            print("logp_ratio:", logp_ratio)
-            raise ValueError("NaN detected in logp ratio calculation")
+        logp_ratio = torch.exp(
+            curr_action_dist.logp(train_batch[SampleBatch.ACTIONS])
+            - train_batch[SampleBatch.ACTION_LOGP]
+        )
 
         # Only calculate kl loss if necessary (kl-coeff > 0.0).
         if self.config["kl_coeff"] > 0.0:
@@ -157,11 +131,6 @@ class CustomLossPolicy(PPOTorchPolicy):
             value_fn_out = torch.tensor(0.0).to(surrogate_loss.device)
             vf_loss_clipped = mean_vf_loss = torch.tensor(0.0).to(surrogate_loss.device)
 
-        assert not torch.isnan(vf_loss_clipped).any(), "NaN in value loss"
-        assert not torch.isnan(curr_entropy).any(), "NaN in entropy loss"
-        assert not torch.isnan(surrogate_loss).any(), "NaN in surrogate loss"
-        assert not torch.isnan(mean_kl_loss).any(), "NaN in kl loss"
-
         total_loss = reduce_mean_valid(
             -surrogate_loss
             + self.config["vf_loss_coeff"] * vf_loss_clipped
@@ -173,10 +142,6 @@ class CustomLossPolicy(PPOTorchPolicy):
         if self.config["kl_coeff"] > 0.0:
             total_loss += self.kl_coeff * mean_kl_loss
 
-        assert not torch.isnan(total_loss).any(), "NaN in total loss"
-
-        
-    
         # Store values for stats function in model (tower), such that for
         # multi-GPU, we do not override them during the parallel loss phase.
         model.tower_stats["total_loss"] = total_loss
