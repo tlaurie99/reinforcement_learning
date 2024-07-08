@@ -68,11 +68,11 @@ class CriticMoG(nn.Module):
         self._u = means
         
         sigmas_prev = value_output[:, self.num_gaussians:self.num_gaussians*2]
-        sigmas = self.elu(sigmas_prev) + 1.000000001
+        sigmas = torch.nn.functional.softplus(sigmas_prev) + 1e-6
         self._sigmas = sigmas
         
         alphas = value_output[:, self.num_gaussians*2:]
-        alphas = torch.nn.functional.softmax(alphas, dim=-1)
+        alphas = torch.clamp(torch.nn.functional.softmax(alphas, dim=-1), 1e-6, None)
         self._alphas = alphas
 
         return value_output, state
@@ -93,7 +93,7 @@ class CriticMoG(nn.Module):
         means = value_output[:, :self.num_gaussians]
 
         sigmas_prev = value_output[:, self.num_gaussians:self.num_gaussians*2]
-        sigmas = self.elu(sigmas_prev) + 1.000000001
+        sigmas = torch.nn.functional.softplus(sigmas_prev) + 1e-6
 
         alphas = value_output[:, self.num_gaussians*2:]
         # run through softmax later since we do the logsumexp
@@ -109,7 +109,7 @@ class CriticMoG(nn.Module):
         mus = td_targets_expanded - mu_current
         
         logp = torch.clamp(factor - torch.square(mus)/ (2*torch.square(sigma_clamped)), -1e10, 10)
-        loga = torch.nn.functional.log_softmax(alpha_current, dim=-1)
+        loga = torch.clamp(torch.nn.functional.log_softmax(alpha_current, dim=-1), 1e-6, None)
         
         summing_log = -torch.logsumexp(logp + loga, dim=-1)
         return summing_log
@@ -123,7 +123,7 @@ class CriticMoG(nn.Module):
 
         mu_current, sigma_current, alpha_current = self.predict_gmm_params(cur_obs)
         mu_next, sigma_next, alpha_next = self.predict_gmm_params(next_obs)
-        alpha_next = torch.nn.functional.softmax(alpha_next, dim=-1)
+        alpha_next = torch.clamp(torch.nn.functional.softmax(alpha_next, dim=-1), 1e-6, None)
 
         next_state_values = torch.sum(mu_next * alpha_next, dim=1).clone().detach()
         td_targets = rewards + gamma * next_state_values * (1 - dones.float())
