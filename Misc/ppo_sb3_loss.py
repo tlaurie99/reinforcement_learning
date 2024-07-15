@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import pandas as pd
 import numpy as np
+import os
 from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.algorithms.ppo.ppo_torch_policy import PPOTorchPolicy
 
@@ -38,10 +39,14 @@ torch, nn = try_import_torch()
 
 class CustomLossPolicy(PPOTorchPolicy):
     def __init__(self, obs_space, action_space, config):
+        self.config = config
+        self.log_std_list = []
+        self.csv_file_path = "logs/log_std_list.csv"
+        self.max_rows = 300_000
+        # Check if the CSV file exists to determine if header needs to be written
+        self.csv_initialized = os.path.exists(self.csv_file_path)
         PPOTorchPolicy.__init__(self, obs_space, action_space, config)
 
-        self.config = config
-    
     @override(PPOTorchPolicy)
     def loss(self, model, dist_class: Type[ActionDistribution], train_batch: SampleBatch) -> Union[TensorType, List[TensorType]]:
         # we do not have to do self.model as a passing argument since the method takes self as the first argument already
@@ -67,7 +72,35 @@ class CustomLossPolicy(PPOTorchPolicy):
         
     
         logits, state = model(train_batch)
+        means, log_stds = torch.chunk(logits, 2, -1)
+        means = means.detach()
+        log_stds = log_stds.detach()
+        log_stds_list = log_stds.tolist()
+        self.log_std_list.extend(log_stds_list)
+        
+        if train_batch['agent_index'][0] == 1:
+            # Check the number of rows in the CSV file
+            if self.csv_initialized:
+                current_rows = sum(1 for row in open(self.csv_file_path)) - 1  # Exclude header
+            else:
+                current_rows = 0
+
+            if current_rows + len(self.log_std_list) > self.max_rows:
+                # Clear the file if it exceeds max_rows
+                self.csv_initialized = False  # Reset the flag to rewrite the header
+
+            df = pd.DataFrame(self.log_std_list)
+            if not self.csv_initialized:
+                df.to_csv(self.csv_file_path, mode='w', index=False, header=True)
+                self.csv_initialized = True
+            else:
+                df.to_csv(self.csv_file_path, mode='a', index=False, header=False)
+
+            # Clear the list after saving to CSV to avoid duplicate entries
+            self.log_std_list.clear()
+            
         curr_action_dist = dist_class(logits, model)
+
         # RNN case: Mask away 0-padded chunks at end of time axis.
         if state:
             B = len(train_batch[SampleBatch.SEQ_LENS])
@@ -91,11 +124,18 @@ class CustomLossPolicy(PPOTorchPolicy):
         prev_action_dist = dist_class(
             train_batch[SampleBatch.ACTION_DIST_INPUTS], model
         )
-
+        
+        
         logp_ratio = torch.exp(
             curr_action_dist.logp(train_batch[SampleBatch.ACTIONS])
             - train_batch[SampleBatch.ACTION_LOGP]
         )
+        
+        # Check for NaNs in logp_ratio and log values if found
+        if torch.isnan(logp_ratio).any():
+            print("NaN detected in logp ratio calculation")
+            print("logp_ratio:", logp_ratio)
+            raise ValueError("NaN detected in logp ratio calculation")
 
         # Only calculate kl loss if necessary (kl-coeff > 0.0).
         if self.config["kl_coeff"] > 0.0:
@@ -142,6 +182,10 @@ class CustomLossPolicy(PPOTorchPolicy):
         if self.config["kl_coeff"] > 0.0:
             total_loss += self.kl_coeff * mean_kl_loss
 
+        assert not torch.isnan(total_loss).any(), "NaN in total loss"
+
+        
+    
         # Store values for stats function in model (tower), such that for
         # multi-GPU, we do not override them during the parallel loss phase.
         model.tower_stats["total_loss"] = total_loss
