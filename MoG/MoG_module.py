@@ -78,7 +78,7 @@ class CriticMoG(nn.Module):
         return value_output, state
     
     def value_function(self, means = None, alphas = None):
-        #v alues of the forward pass is simply the gaussian means multiplied by their respective alpha
+        # values of the forward pass is simply the gaussian means multiplied by their respective alpha
         # give the user the option to pass means and alphas so they have the ability to graph, etc.
         if means is not None and alphas is not None:
             value = torch.sum(means * alphas, dim = 1)
