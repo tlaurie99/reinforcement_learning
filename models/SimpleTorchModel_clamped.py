@@ -26,7 +26,7 @@ class SimpleCustomTorchModel(TorchModelV2, nn.Module):
         # this is based on the means being -1 to 1 so the std_dev domain would be [0,1)
         # where exp(-10) and exp(0) would give the above domain for std_dev
         log_stds_clamped = torch.clamp(log_stds, -10, 0)
-        logits = torch.cat((means_clamped, log_std_clamped), dim = -1)
+        logits = torch.cat((means_clamped, log_stds_clamped), dim = -1)
         self.value, _ = self.critic_fcnet(input_dict, state, seq_lens)
         return logits, state
 
