@@ -1,12 +1,13 @@
 # Improving the current reinforcement learning paradigm one neuron at a time
 
-## Two approaches within this repository with regards to loss functions:
+## Testing and improving loss functions:
 - Energy distance between target and predicted distributions
     - Source: https://arxiv.org/pdf/2105.11366.pdf
 - Negative log likelihood  as the loss between target and predicted distributions
     1. Not verbatim, but Source: https://arxiv.org/pdf/2204.10256.pdf
     2. Source of loss function: rice-field
- ## Reducing uncertainty using Epistemic Neural Networks
+ ## Reducing epistemic uncertainty using Epistemic Neural Networks
+ - Base knowledge: epistemic uncertainty is lack of knowledge while aleatoric uncertainty is due to ambiguity
  - Use of base networks, prior networks, and epistemic networks to capture epistemic uncertainty (lack of knowledge / exploration)
     1. ENN foundation source: https://arxiv.org/pdf/2107.08924.pdf
     2. ENN implementation into RL source: https://arxiv.org/pdf/2302.09205.pdf
