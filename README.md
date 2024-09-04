@@ -1,4 +1,4 @@
-# Make value functions more robust by using mixture of gaussians and reducing uncertainty
+# Improving the current reinforcement learning paradigm one neuron at a time
 
 ## Two approaches within this repository with regards to loss functions:
 - Energy distance between target and predicted distributions
