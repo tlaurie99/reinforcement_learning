@@ -7,4 +7,4 @@
 
 ### Clamped model
 * has gained the attention of the RLLIB folks and is no longer needed
-  instead log_std_clip_param can now be used as discussed [here](https://discuss.ray.io/t/ppo-nan-in-actor-logits/15140/7)
+⋅⋅⋅instead log_std_clip_param can now be used as discussed [here](https://discuss.ray.io/t/ppo-nan-in-actor-logits/15140/7)
