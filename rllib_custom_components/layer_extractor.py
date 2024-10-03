@@ -28,7 +28,6 @@ def collect_layers(branch):
         # this handles the input and the inner hidden layers
         if isinstance(m, SlimFC):
             for layer in m._model.children():
-                # we only want the Linear part of the layer as cpb will handle the activation
                 if isinstance(layer, torch.nn.Linear):
                     layers.append(layer)
         # this will handle the output layer
@@ -41,7 +40,7 @@ def collect_layers(branch):
     return layers
 
 
-'''Usage within RLLIB model'''
+'''Usage within RLLIB model's value branches'''
 # initial_layers = collect_layers(value_branch_sep)
 # final_layer = collect_layers(value_branch)
 # layers = initial_layers + final_layer
