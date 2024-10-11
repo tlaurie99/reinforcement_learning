@@ -24,4 +24,9 @@
       by the end of the simulation (30M timesteps) the agent reaches 70,000+ mean reward and the other agent falls to -2,000+ mean reward.
     - This simulation was tested 30+ individual times with the same hyperparameters, reversing agent order, instantiating differently within the env, etc.
     - Currently tesing the effect on increasing the Z-dim (brief results have shown that 10-15 is the optimal vs 1-10)
+## Using Continual Back Propagation to promote continual learning
+- Source: https://www.nature.com/articles/s41586-024-07711-7
+## Gaussian Process models to model failure probability and promote safe action selection
+- Source: https://arxiv.org/pdf/2305.02449
+    
   
