@@ -2,20 +2,30 @@ from waypoints_flat_wrapper import BSVFlattenWaypointEnv
 from gymnasium import spaces
 import numpy as np
 from stable_baselines3 import PPO
+from gymnasium.envs.registration import register
 import gymnasium as gym
 import argparse
 import time
+from waypoints_env import Quadx_waypoints_2
 
+
+def register_the_env():
+    register(
+        id='PyFlyt/QuadXBSV-Waypoints-v1', 
+        entry_point=Quadx_waypoints_2,
+        max_episode_steps=500, 
+    )
 
 def parse_args():
     parser = argparse.ArgumentParser(description="PyFlyt Waypoint Evaluation")
-    parser.add_argument('--waypoints', nargs=4, type=float, required=True, help="Waypoint coordinates (x, y, z)")
+    parser.add_argument('--waypoints', nargs=3, type=float, required=True, help="Waypoint coordinates (x, y, z)")
     args = parser.parse_args()
-    return np.array(args.waypoints).reshape(4, 3)
+    return np.array(args.waypoints).reshape(1, 3)
 
 
 def evaluate(model_path, waypoints_input):
     init_waypoints = [[0, 1, 1]]
+    register_the_env()
     env = BSVFlattenWaypointEnv(gym.make(id='PyFlyt/QuadXBSV-Waypoints-v1', flight_mode=-1), BSV_waypoints=init_waypoints)
 
     env.action_space = spaces.Box(low = np.array(
@@ -70,7 +80,7 @@ def evaluate(model_path, waypoints_input):
         if terminated:
             print("failure")
             break
-        elif info['num_targets_reached'] == 4:
+        elif info['num_targets_reached'] == 1:
             print("success")
             break
 

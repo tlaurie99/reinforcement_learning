@@ -1,6 +1,6 @@
+# from __future__ import annotations
 from waypoint_handler import UpdatedWaypointHandler
 from PyFlyt.gym_envs.quadx_envs.quadx_waypoints_env import QuadXWaypointsEnv
-from __future__ import annotations
 from typing import Any, Literal
 import numpy as np
 from gymnasium import spaces
@@ -11,7 +11,7 @@ class Quadx_waypoints_2(QuadXWaypointsEnv):
     def __init__(
         self,
         sparse_reward: bool = False,
-        num_targets: int = 4,
+        num_targets: int = 1,
         use_yaw_targets: bool = False,
         goal_reach_distance: float = 0.2,
         goal_reach_angle: float = 0.1,
