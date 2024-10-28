@@ -13,7 +13,7 @@ def register_the_env():
     register(
         id='PyFlyt/QuadXBSV-Waypoints-v1', 
         entry_point=Quadx_waypoints_2,
-        max_episode_steps=500, 
+        max_episode_steps=200, 
     )
 
 def parse_args():
@@ -58,14 +58,13 @@ def evaluate(model_path, waypoints_input):
     obs_array_list = []
     start = time.time()
     terminated = False
+    step = 0
     while not terminated:
         action, _states = model_loaded.predict(obs,
                                         deterministic=True
                                         )
     # obs, reward, terminated, truncated, info = env.step(np.zeros((4))+.79)
         obs, reward, terminated, truncated, info = env.step(action)
-
-        print(f"info is: {info}")
 
         obs_list += [obs]
         reward_list += [reward]
@@ -77,18 +76,22 @@ def evaluate(model_path, waypoints_input):
         #     print("success")
 
 
-        if terminated:
-            print("failure")
-            break
-        elif info['num_targets_reached'] == 1:
+        if info['num_targets_reached'] == 1:
             print("success")
             break
+        elif info['out_of_bounds'] or info['collision'] or terminated or truncated:
+            print("failure")
+            break
+        else:
+            step +=1
+            if step > 100:
+                print("failure")
+                break
 
     env.close()
 
     obs_array = np.array(obs_list)
     reward_array = np.array(reward_list)
-    print(f"reward: {reward_array}")
     action_array = np.array(action_list)
     # targets_array = np.array(target_waypoint_local)
 
