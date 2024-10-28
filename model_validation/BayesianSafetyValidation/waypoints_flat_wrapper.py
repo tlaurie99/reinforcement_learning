@@ -1,6 +1,6 @@
 from gymnasium.core import Env, ObservationWrapper
 from waypoint_handler import UpdatedWaypointHandler
-from gymnasium import gym
+import gymnasium as gym
 from gymnasium.spaces import Box
 import numpy as np
 
