@@ -80,7 +80,6 @@ class Quadx_waypoints_2(QuadXWaypointsEnv):
 
         """
         super().begin_reset(seed, options)
-        print(f"BSV waypoints: {BSV_waypoints}")
         self.waypoints.reset(self.env, self.np_random, BSV_waypoints)
         self.info["num_targets_reached"] = 0
         super().end_reset()
