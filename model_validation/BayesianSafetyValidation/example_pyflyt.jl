@@ -9,11 +9,17 @@ using Distributions
     z1 = 0.0
 end
 
+# function System.evaluate(sparams::PyFlytWaypointSystem, inputs::Vector; kwargs...)
+#     return [readchomp(`wsl python3 src/pyflyt_evaluate.py --waypoints $(x[1]) $(x[2]) $(x[3])`) == "success" for x in inputs]
+# end
+
+
 function System.evaluate(sparams::PyFlytWaypointSystem, inputs::Vector; kwargs...)
     @info "Evaluating with parameters:"
     @info "System Parameters: x1=$(sparams.x1), y1=$(sparams.y1), z1=$(sparams.z1)"
     @info "Inputs: $inputs"
 
+    # Capture and print results from Python evaluations
     results = [strip(readchomp(`wsl python3 src/pyflyt_evaluate.py --waypoints $(x[1]) $(x[2]) $(x[3])`)) for x in inputs]
 
     for (i, result) in enumerate(results)
@@ -38,10 +44,12 @@ function System.evaluate(sparams::PyFlytWaypointSystem, inputs::Vector; kwargs..
 end
 
 
-
-px1 = OperationalParameters("x1", [0.5, 2.0], Normal(1.0, 0.50))
+# hold z constant and vary x/y
+px1 = OperationalParameters("x1", [-5.0, 5.0], Normal(0.0, 2.0))
 py1 = OperationalParameters("y1", [-5.0, 5.0], Normal(0.0, 2.0))
-pz1 = OperationalParameters("z1", [1.5, 1.5], Normal(1.0, 0.5))
+pz1 = OperationalParameters("z1", [1.5, 1.5], Normal(1.5, 0.5))
+# px3 = OperationalParameters("x3", [-5.0, 5.0], Normal(0.0, 1.0))
+# px4 = OperationalParameters("x4", [-5.0, 5.0], Normal(0.0, 1.0))
 model = [px1, py1, pz1]
 #sysparams: 
 system_params = PyFlytWaypointSystem()
@@ -55,10 +63,12 @@ X_failures = falsification(surrogate.x, surrogate.y)
 ml_failure = most_likely_failure(surrogate.x, surrogate.y, model)
 p_failure  = p_estimate(surrogate, model)
 
+@info "Truth estimate"
+#truth = truth_estimate(system_params, model) # when using simple systems
 @info "Plotting"
 # (gp, models, sparams; inds=[:, :, fill(1, length(models) - 2)...], num_steps=200, m=fill(num_steps, length(models)), latex_labels=true, show_data=false, overlay=false, tight=true, use_heatmap=false, hide_model=true, hide_ranges=false, titlefontsize=12, add_phantom_point=true)
 
-p = plot_surrogate_truth_combined(surrogate, model, system_params; hide_model=false, num_steps=5, show_data=true)
+p = plot_surrogate_truth_combined(surrogate, model, system_params; num_steps=10, show_data=true)
 savefig(p, "pyflyt_bsv.png")
 # t = plot_data!(surrogate.x, surrogate.y)
 # savefig(t, "lunarlander_points.png")
