@@ -83,7 +83,6 @@ class UpdatedWaypointHandler(WaypointHandler):
                     [x, y, z if z > self.min_height else self.min_height]
                 )
 
-        print(f"targets are now: {self.targets}")
         # yaw targets
         if self.use_yaw_targets:
             self.yaw_targets = self.np_random.uniform(
@@ -109,7 +108,3 @@ class UpdatedWaypointHandler(WaypointHandler):
                     linkIndex=-1,
                     rgbaColor=(0, 1 - (i / len(self.target_visual)), 0, 1),
                 )
-
-
-
-    
