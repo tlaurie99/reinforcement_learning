@@ -97,7 +97,7 @@ class CustomHalfCheetahEnv(MujocoEnv, utils.EzPickle):
 
         # change the dynamics of reward after ~50M timesteps (after stabilization)
         # could also change a physical attribute, but seems a little more difficult
-        # will look into this if the reward weight doens't do much
+        # will look into this if the reward weight doesn't do much
         if self._total_step % 1_500_5000 == 0:
             self._forward_reward_weight += 0.4
             print(f"changing forward reward to {self._forward_reward_weight}")
@@ -141,7 +141,7 @@ register(
     entry_point=CustomHalfCheetahEnv, 
 )
 
-
+# RLLIB registration
 def env_creator(config):
     return CustomHalfCheetahEnv(**config)
 register_env("CustomHalfCheetahEnv", env_creator)
