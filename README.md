@@ -26,7 +26,12 @@
     - Currently tesing the effect on increasing the Z-dim (brief results have shown that 10-15 is the optimal vs 1-10)
 ## Using Continual Back Propagation to promote continual learning
 - Source: https://www.nature.com/articles/s41586-024-07711-7
-## Gaussian Process models to model failure probability and promote safe action selection
+## Gaussian Process models to model failure probability and promote safe action selection using Bayesian Safety Validation (BSV)
 - Source: https://arxiv.org/pdf/2305.02449
+- Utlizes GPs to refine failure boundaries using various techniques such as uncertainty searching, boundary refinment and failure probability estimation using Failure Search and Refinment (FSAR)
+- BSV looks over the whole latent space of the environment and samples points based on provided distributions in which it then begins to find failure regions to exploit
+- In this case, the environment was a drone flying to a waypoint, but the way the waypoints are sampled sometimes the waypoints are sampled outside of the environment boundaries causing failures
+    - The results clearly indicate this phenoma and align with expected behavior (i.e. polar coordinates are given to initialize the environment and waypoint which should result in a circular fail / not fail boundary)
+- Results are seen here [BayesianSafetyValidation](./model_validation/BayesianSafetyValidation)
     
   
