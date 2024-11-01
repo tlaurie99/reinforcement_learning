@@ -32,6 +32,12 @@
 - BSV looks over the whole latent space of the environment and samples points based on provided distributions in which it then begins to find failure regions to exploit
 - In this case, the environment was a drone flying to a waypoint, but the way the waypoints are sampled sometimes the waypoints are sampled outside of the environment boundaries causing failures
     - The results clearly indicate this phenoma and align with expected behavior (i.e. polar coordinates are given to initialize the environment and waypoint which should result in a circular fail / not fail boundary)
+    - Green indicates success and red indicates failure while the failure boundary is between [0, 1]
 - Results are seen here [BayesianSafetyValidation](./model_validation/BayesianSafetyValidation)
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/fbde600b-56e0-41c7-8f76-c171540add2f" alt="Centered Image" width="500"/>
+</p>
+
     
   
