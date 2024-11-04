@@ -98,9 +98,14 @@ class CustomHalfCheetahEnv(MujocoEnv, utils.EzPickle):
         # change the dynamics of reward after ~50M timesteps (after stabilization)
         # could also change a physical attribute, but seems a little more difficult
         # will look into this if the reward weight doesn't do much
-        if self._total_step % 1_500_5000 == 0:
-            self._forward_reward_weight += 0.4
-            print(f"changing forward reward to {self._forward_reward_weight}")
+
+        # update: reward weight didn't really work, so now implemented a decrease in joint stiffness
+        # joint stiffness: how much the joint resists movement from its rest position (i.e. higher values indicate more rigidity -- helping it find balance while standing)
+        # joint damping coefficient: the amount of resistance against the joint's motion which slows down rapid movements and prevents overshooting (similar to "D" in PID)
+        if self._total_step % 750_000 == 0:
+            # or can use self.model.dof_damping
+            self.model.jnt_stiffness[3] /= 5
+            print(f"changing forward reward to {self.model.jnt_stiffness[3]}")
         return observation, reward, terminated, False, info
 
     def reset(self, *, seed=None, options=None):
