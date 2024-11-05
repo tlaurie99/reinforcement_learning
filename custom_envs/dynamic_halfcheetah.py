@@ -105,7 +105,7 @@ class CustomHalfCheetahEnv(MujocoEnv, utils.EzPickle):
         if self._total_step % 750_000 == 0:
             # or can use self.model.dof_damping
             self.model.jnt_stiffness[3] /= 5
-            print(f"changing forward reward to {self.model.jnt_stiffness[3]}")
+            print(f"changing back joint stiffness to {self.model.jnt_stiffness[3]}")
         return observation, reward, terminated, False, info
 
     def reset(self, *, seed=None, options=None):
