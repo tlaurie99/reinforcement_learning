@@ -25,6 +25,9 @@
     - This simulation was tested 30+ individual times with the same hyperparameters, reversing agent order, instantiating differently within the env, etc.
     - Currently tesing the effect on increasing the Z-dim (brief results have shown that 10-15 is the optimal vs 1-10)
 ## Using Continual Back Propagation to promote continual learning
+- Results using the CBP_linear wrapper have been lack luster and have not shown any sort of increase in learning ability (they did have a disclaimer stating this wrapper is not flushed out, so there might be some sort of performance bug here)
+- This was tested on the  [dynamic halfcheetah environment](./custom_envs/dynamic_halfcheetah.py) where joint stiffness was modified -- a substantial loss in reward is seen, but both the CBP and the normal PPO model are able to recover when this changes
+- > Initially, this might be because the halfcheetah environment is not as complex as the ant environment in the paper, but not promising enough to continue with pursuing
 - Source: https://www.nature.com/articles/s41586-024-07711-7
 ## Gaussian Process models to model failure probability and promote safe action selection using Bayesian Safety Validation (BSV)
 - Source: https://arxiv.org/pdf/2305.02449
