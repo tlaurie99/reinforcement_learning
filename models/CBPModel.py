@@ -21,16 +21,7 @@ class CBPModel(TorchModelV2, nn.Module):
         self.actor_fcnet = TorchFC(obs_space, action_space, action_space.shape[0]*2, model_config, name + 
                                    "_actor")
         hidden_layer_size = model_config['fcnet_hiddens'][0]
-        # fancy stuff later
-        # num_layers = len(hidden_layer_size)
-        # # make layers
-        # for i in range(1, num_layers+1):
-        #         if i == 1:
-        #             self.fc{i} = nn.Linear(obs_space.shape[0], hidden_layer_size)
-        #         else:
-        #             self.fc{i} = nn.Linear(hidden_layer_size, hidden_layer_size)
-        # # output layer - just use mean for now
-        # self.fc_out =  nn.Linear(hidden_layer_size, 1)
+        
         self.act = nn.LeakyReLU()
         self.fc1 = nn.Linear(obs_space.shape[0], hidden_layer_size)
         self.fc2 = nn.Linear(hidden_layer_size, hidden_layer_size)
