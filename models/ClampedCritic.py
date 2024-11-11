@@ -18,7 +18,6 @@ class ClampedCritic(TorchModelV2, nn.Module):
                                    "_actor")
     @override(TorchModelV2)
     def forward(self, input_dict, state, seq_lens):
-        # Get the model output
         logits, _ = self.actor_fcnet(input_dict, state, seq_lens)
         means, log_stds = torch.chunk(logits, 2, -1)
         # assuming means are normalized between -1 and 1
