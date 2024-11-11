@@ -8,7 +8,7 @@ from ray.rllib.models.torch.fcnet import FullyConnectedNetwork as TorchFC
 
 torch, nn = try_import_torch()
 
-class SimpleCustomTorchModel(TorchModelV2, nn.Module):
+class ClampedCritic(TorchModelV2, nn.Module):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
         nn.Module.__init__(self)
@@ -35,4 +35,4 @@ class SimpleCustomTorchModel(TorchModelV2, nn.Module):
         return self.value.squeeze(-1)
 
 # register the custom model to make it available to Ray/RLlib
-ModelCatalog.register_custom_model("SimpleCustomTorchModel", SimpleCustomTorchModel)
+ModelCatalog.register_custom_model("ClampedCritic", ClampedCritic)
