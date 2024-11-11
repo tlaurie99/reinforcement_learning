@@ -8,7 +8,7 @@ from ray.rllib.models.torch.fcnet import FullyConnectedNetwork as TorchFC
 
 torch, nn = try_import_torch()
 
-class SimpleCustomTorchModel(TorchModelV2, nn.Module):
+class ParameterizedCritic(TorchModelV2, nn.Module):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
         nn.Module.__init__(self)
@@ -22,7 +22,6 @@ class SimpleCustomTorchModel(TorchModelV2, nn.Module):
         
     @override(TorchModelV2)
     def forward(self, input_dict, state, seq_lens):
-        # Get the model output
         means, _ = self.actor_means(input_dict, state, seq_lens)
         log_stds = self.log_stds.expand_as(means)
         logits = torch.cat((means, log_stds), dim = -1)
@@ -36,4 +35,4 @@ class SimpleCustomTorchModel(TorchModelV2, nn.Module):
         return self.value.squeeze(-1)
 
 # Register the custom model to make it available to Ray/RLlib
-ModelCatalog.register_custom_model("SimpleCustomTorchModel", SimpleCustomTorchModel)
+ModelCatalog.register_custom_model("ParameterizedCritic", ParameterizedCritic)
