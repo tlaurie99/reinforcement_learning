@@ -36,7 +36,7 @@ activation_functions = {
     'LogSoftmax': nn.LogSoftmax,
 }
 
-class CriticMoG(nn.Module):
+class MOG(nn.Module):
     def __init__(self, obs_space, num_gaussians, hidden_layer_dims = None, num_layers = None, activation = None):
         super(CriticMoG, self).__init__()
         nn.Module.__init__(self)
