@@ -7,7 +7,6 @@ import numpy as np
 from mavsdk import System
 from mavsdk.camera import CameraError
 from mavsdk.camera import Mode, Setting, Option
-from hloc_pipeline import main as hloc_pipeline
 from mavsdk.mission import MissionItem, MissionPlan
 from mavsdk.offboard import OffboardError, PositionNedYaw
 
@@ -111,9 +110,6 @@ async def run():
         if mission_progress.current == mission_progress.total:
             print("---All waypoints reached!---")
             break
-
-    print("--Waiting for HLOC to analyze photos---")
-    hloc_pipeline()
     await asyncio.sleep(10)
     print("--Returning to launch point--")
     await drone.action.return_to_launch()
