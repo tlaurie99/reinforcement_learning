@@ -1,15 +1,20 @@
 import os
+import yaml
 import time
 import mavsdk
 import asyncio
 import numpy as np
 import aioitertools
-from mavsdk import telemetry
 from mavsdk import System
+from mavsdk import telemetry
+from stable_baselines3 import PPO
 from mavsdk.camera import CameraError
+from drone_hover_env import QuadXHoverEnv
 from mavsdk.camera import Mode, Setting, Option
 from mavsdk.mission import MissionItem, MissionPlan
+from stable_baselines3.common.policies import ActorCriticPolicy
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
+
 
 async def run():
     drone = System()
@@ -72,5 +77,22 @@ async def run():
     print("---Landing---")
     await drone.action.land()
 
+def load_yaml_config(file_path):
+    """Load the YAML configuration file."""
+    with open(file_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
+
 if __name__ == "__main__":
+    yaml_config_path = r"/workspace/config_file.yaml"
+    config = load_yaml_config(yaml_config_path)
+
+    hover_config = config['hover_env_config']
+    env = QuadXHoverEnv(hover_config)
+    
+    model = PPO(
+        ActorCriticPolicy,
+        env,
+    )
+
     asyncio.run(run())

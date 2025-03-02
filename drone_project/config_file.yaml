@@ -1,0 +1,16 @@
+
+# 5 feet in meters
+hover_height: 1.524 
+
+hover_env_config:
+    sparse_reward: False
+    flight_mode: 0
+    flight_dome_size: 10
+    max_duration_seconds: 30
+    angle_representation: "quaternion"
+    agent_hz: 40
+    
+
+SB3_config:
+    hypers:
+        clip_param: 0.20
