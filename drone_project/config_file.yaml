@@ -12,5 +12,7 @@ hover_env_config:
     
 
 SB3_config:
+    timesteps: 100
     hypers:
         clip_param: 0.20
+        

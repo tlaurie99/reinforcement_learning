@@ -1,5 +1,3 @@
-"""Base PyFlyt Environment for the QuadX model using the Gymnasim API."""
-
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -8,54 +6,49 @@ import gymnasium
 import numpy as np
 from gymnasium import spaces
 
+import os
+import yaml
+import time
+import mavsdk
+import asyncio
+import numpy as np
+import aioitertools
+from mavsdk import System
+from mavsdk import telemetry
+from stable_baselines3 import PPO
+from mavsdk.camera import CameraError
+from mavsdk.camera import Mode, Setting, Option
+from mavsdk.mission import MissionItem, MissionPlan
+from stable_baselines3.common.policies import ActorCriticPolicy
+from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
 
-class QuadXBaseEnv(gymnasium.Env):
-    """Base PyFlyt Environment for the QuadX model using the Gymnasium API."""
+"""
+GO BACK TO GPT AND SEE HOW TO SET UP A SYNCRONOUS WRAPPER FOR ASYNC ENVS
+"""
 
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
-    def __init__(
-        self,
-        start_pos: np.ndarray = np.array([[0.0, 0.0, 1.0]]),
-        start_orn: np.ndarray = np.array([[0.0, 0.0, 0.0]]),
-        flight_mode: int = 0,
-        flight_dome_size: float = np.inf,
-        max_duration_seconds: float = 10.0,
-        angle_representation: Literal["euler", "quaternion"] = "quaternion",
-        agent_hz: int = 30,
-        render_mode: None | Literal["human", "rgb_array"] = None,
-        render_resolution: tuple[int, int] = (480, 480),
-    ):
-        """__init__.
+class BaseDroneEnv(gymnasium.Env):
+    """Base environment that exposes PX4 / mavsdk to the gym API"""
 
-        Args:
-            start_pos (np.ndarray): start_pos
-            start_orn (np.ndarray): start_orn
-            flight_mode (int): flight_mode
-            flight_dome_size (float): flight_dome_size
-            max_duration_seconds (float): max_duration_seconds
-            angle_representation (Literal["euler", "quaternion"]): angle_representation
-            agent_hz (int): agent_hz
-            render_mode (None | Literal["human", "rgb_array"]): render_mode
-            render_resolution (tuple[int, int]): render_resolution
-
-        """
-        if 120 % agent_hz != 0:
-            lowest = int(120 / (int(120 / agent_hz) + 1))
-            highest = int(120 / int(120 / agent_hz))
+    async def async_init(self, env_config):
+        agent_hz = env_config.get("agent_hz", 40)
+        flight_mode = env_config.get("flight_mode", 0)
+        flight_dome_size = env_config.get("flight_dome_size", 50)
+        max_duration_seconds = env_config.get("max_duration_seconds", 45)
+        start_pos = env_config.get("start_pos", np.array([[0.0, 0.0, 1.0]]))
+        start_orn = env_config.get("start_orn", np.array([[0.0, 0.0, 0.0]]))
+        angle_representation = env_config.get("angle_representation", "quaternion")
+        
+        """sim rate depends on GZ/PX4 -- look up"""
+        sim_rate = 200
+        
+        if sim_rate % agent_hz != 0:
+            lowest = int(sim_rate / (int(sim_rate / agent_hz) + 1))
+            highest = int(sim_rate / int(sim_rate / agent_hz))
             raise ValueError(
                 f"`agent_hz` must be round denominator of 120, try {lowest} or {highest}."
             )
 
-        if render_mode and render_mode not in self.metadata["render_modes"]:
-            raise ValueError(
-                f"Invalid render mode {render_mode}, only {self.metadata['render_modes']} allowed."
-            )
-        self.render_mode = render_mode
-        self.render_resolution = render_resolution
-
-        """GYMNASIUM STUFF"""
-        # attitude size increases by 1 for quaternion
         if angle_representation == "euler":
             attitude_shape = 12
         elif angle_representation == "quaternion":
@@ -68,43 +61,20 @@ class QuadXBaseEnv(gymnasium.Env):
         self.attitude_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(attitude_shape,), dtype=np.float64
         )
-        self.auxiliary_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(4,), dtype=np.float64
-        )
 
-        # define the action space
-        xyz_limit = np.pi
-        thrust_limit = 0.8
-        if flight_mode == -1:
-            high = np.ones((4,)) * thrust_limit
-            low = np.zeros((4,))
-        else:
-            high = np.array(
-                [
-                    xyz_limit,
-                    xyz_limit,
-                    xyz_limit,
-                    thrust_limit,
-                ]
-            )
-            low = np.array(
-                [
-                    -xyz_limit,
-                    -xyz_limit,
-                    -xyz_limit,
-                    0.0,
-                ]
-            )
+        # action space setup
+        high = np.ones((4,))
+        low = -high
         self.action_space = spaces.Box(low=low, high=high, dtype=np.float64)
 
-        # the whole implicit state space = attitude + previous action + auxiliary information
+        # the whole implicit state space = attitude + previous action + auxiliary 
+        # information
         self.combined_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
             shape=(
                 attitude_shape
-                + self.action_space.shape[0]
-                + self.auxiliary_space.shape[0],
+                + self.action_space.shape[0],
             ),
             dtype=np.float64,
         )
@@ -115,45 +85,60 @@ class QuadXBaseEnv(gymnasium.Env):
         self.flight_mode = flight_mode
         self.flight_dome_size = flight_dome_size
         self.max_steps = int(agent_hz * max_duration_seconds)
-        self.env_step_ratio = int(120 / agent_hz)
+        self.env_step_ratio = int(sim_rate / agent_hz)
         if angle_representation == "euler":
             self.angle_representation = 0
         elif angle_representation == "quaternion":
             self.angle_representation = 1
 
-    def close(self) -> None:
-        """Disconnects the internal Aviary."""
-        # if we already have an env, disconnect from it
-        if hasattr(self, "env"):
-            self.env.disconnect()
-
-    def reset(
-        self, *, seed: None | int = None, options: dict[str, Any] | None = dict()
-    ) -> tuple[Any, dict[str, Any]]:
-        """reset.
-
-        Args:
-            seed (None | int): seed
-            options (dict[str, Any]): options
-
-        Returns:
-            tuple[Any, dict[str, Any]]:
-
+        # drone object
+        self.drone = System()
+        """By using await here, we are creating coroutines that will run with the main event loop
+            allowing I/O operations to still happen for the drone, but these tasks will sequentially be done
+            by this style of await task_1, await task_2, etc. 
+            We can have them asynchronous by using asyncio.gather() or asyncio.create_task()
         """
+        await self.connect_drone()
+        await self.check_drone_status()
+        self.home_position = await self.get_init_position()
+
+    async def set_offboard_params(self):
+        await self.drone.offboard.set_attitude(Attitude(
+            roll_deg=0.0,
+            pitch_deg=0.0,
+            yaw_deg=0.0,
+            thrust_value=0.5
+        ))
+        print("--Set offboard params--")
+
+    async def connect_drone(self):
+        await self.drone.connect(system_address="udp://:14550")
+        print("---Connecting to drone---")
+        async for state in self.drone.core.connection_state():
+            if state.is_connected:
+                print("---Drone connected---")
+                break
+
+    async def check_drone_status(self):
+        async for health in self.drone.telemetry.health():
+            if health.is_global_position_ok and health.is_home_position_ok:
+                print("---Global position estimate is good---")
+                break
+
+    async def get_init_position(self):
+        async for home in self.drone.telemetry.home():
+            lat = home.latitude_deg
+            lon = home.longitude_deg
+            alt = home.absolute_altitude_m
+            position_np = np.array([lat, lon, alt])
+            break 
+        return position_np
+        
+
+    async def reset(self, *, seed, options):
         raise NotImplementedError
 
-    def begin_reset(
-        self,
-        seed: None | int = None,
-        options: None | dict[str, Any] = dict(),
-        drone_options: None | dict[str, Any] = dict(),
-    ) -> None:
-        """The first half of the reset function."""
-        super().reset(seed=seed)
-
-        # if we already have an env, disconnect from it
-        if hasattr(self, "env"):
-            self.env.disconnect()
+    async def begin_reset(self, seed: None | int = None, options: None | dict[str, Any] = dict()) -> None:
 
         self.step_count = 0
         self.termination = False
@@ -166,58 +151,118 @@ class QuadXBaseEnv(gymnasium.Env):
         self.info["collision"] = False
         self.info["env_complete"] = False
 
-        # need to handle Nones
-        if options is None:
-            options = dict()
-        if drone_options is None:
-            drone_options = dict()
+        async for state in self.drone.telemetry.landed_state():
+            options['current_state'] = state
+            break
+        if not options['current_state'] == "ON_GROUND":
+            await self.drone.action.return_to_launch()
+            await asyncio.sleep(1)
+            print("---Landing---")
+            await self.drone.action.land()
 
-        # camera handling
-        drone_options["use_camera"] = drone_options.get("use_camera", False) or bool(
-            self.render_mode
-        )
-        drone_options["camera_fps"] = int(120 / self.env_step_ratio)
+        
 
-        # init env
+    async def end_reset(self, seed: None | int = None, options: None | dict[str, Any] = dict()) -> None:        
+        # connect to a new drone object that connects to the sim
+        """might have to break connection and reset it"""
+        async for state in self.drone.core.connection_state():
+            if not state.is_connected:
+                print("---Drone connected---")
+                self.drone = System()
+                await self.drone.connect(system_address="udp://:14550")
+                print("---Connecting to drone---")
+                async for state in self.drone.core.connection_state():
+                    if state.is_connected:
+                        print("---Drone connected---")
+                        break
+                break
+    
+                async for health in self.drone.telemetry.health():
+                    if health.is_global_position_ok and health.is_home_position_ok:
+                        print("Global position estimate is good")
+                        break
+                print("---Arming Drone---")
+                await self.drone.action.arm()
+                await asyncio.sleep(1)
+                print("---Taking off---")
+                await self.drone.action.takeoff()
+                await asyncio.sleep(5)
+                await self.set_offboard_params()
+                await self.drone.offboard.start()
+            else:
+                print("---Arming Drone---")
+                await self.drone.action.arm()
+                await asyncio.sleep(1)
+                print("---Taking off---")
+                await self.drone.action.takeoff()
+                await asyncio.sleep(5)
+                await self.set_offboard_params()
+                await self.drone.offboard.start()
+                break
 
-        """---MAKE ENV FROM PX4 HERE---"""
-        # self.env = Aviary(
-        #     start_pos=self.start_pos,
-        #     start_orn=self.start_orn,
-        #     drone_type="quadx",
-        #     render=self.render_mode == "human",
-        #     drone_options=drone_options,
-        #     np_random=self.np_random,
-        # )
-
-        if self.render_mode == "human":
-            self.camera_parameters = self.env.getDebugVisualizerCamera()
-
-    def end_reset(
-        self, seed: None | int = None, options: None | dict[str, Any] = dict()
-    ) -> None:
-        """The tailing half of the reset function."""
-        # register all new collision bodies
-        self.env.register_all_new_bodies()
-
-        # set flight mode
-        self.env.set_mode(self.flight_mode)
-
-        # wait for env to stabilize
-        for _ in range(10):
-            self.env.step()
-
-        self.compute_state()
-
-    def compute_state(self) -> None:
+    async def compute_state(self) -> None:
         """Computes the state of the QuadX."""
         raise NotImplementedError
 
-    def compute_auxiliary(self) -> np.ndarray:
-        """This returns the auxiliary state form the drone."""
-        return self.env.aux_state(0)
+    async def build_state(self):
+        """Builds the observation state of the agent in a asynchronous manner using asyncio.gather()
+        Args:
+            -get_lin_pos: linear position in [lat_deg, lon_deg, alt_m]
+            -get_lin_vel: linear velocity in NED meters/sec
+            -get_ang_pos: angular position [roll_deg, pitch_deg, yaw_deg]
+            -get_ang_vel: angular velocity in rad/sec
+            -get_quat: quaternion in [w, x, y, z] with null rotation as [1, 0, 0, 0]
+        Returns:
+            -state of the agent
+        """
+        async def get_lin_pos():
+            async for lin_pos in self.drone.telemetry.position():
+                lat1 = lin_pos.latitude_deg
+                lon1 = lin_pos.longitude_deg
+                alt1 = lin_pos.relative_altitude_m
+                return np.array([lat1, lon1, alt1])   
 
-    def compute_attitude(
+        async def get_lin_vel():
+            async for lin_vel in self.drone.telemetry.position_velocity_ned():
+                north_vel = lin_vel.velocity.north_m_s
+                east_vel = lin_vel.velocity.east_m_s
+                down_vel = lin_vel.velocity.down_m_s # or absolute_altitude_m
+                return np.array([north_vel, east_vel, down_vel])
+
+        async def get_ang_pos():
+            async for ang_pos in self.drone.telemetry.attitude_euler():
+                roll = ang_pos.roll_deg
+                pitch = ang_pos.pitch_deg
+                yaw = ang_pos.yaw_deg
+                return np.array([roll, pitch, yaw])
+
+        async def get_ang_vel():
+            async for ang_vel in self.drone.telemetry.attitude_angular_velocity_body():
+                roll_rate = ang_vel.roll_rad_s
+                pitch_rate = ang_vel.pitch_rad_s
+                yaw_rate = ang_vel.yaw_rad_s
+                return np.array([roll_rate, pitch_rate, yaw_rate])
+
+        async def get_quat():
+            async for quat in self.drone.telemetry.attitude_quaternion():
+                w = quat.w
+                x = quat.x
+                y = quat.y
+                z = quat.z
+                return np.array([w, x, y, z])
+
+        lin_pos_np, lin_vel_np, ang_pos_np, ang_vel_np, quat_np = await asyncio.gather(
+            get_lin_pos(),
+            get_lin_vel(),
+            get_ang_pos(),
+            get_ang_vel(),
+            get_quat(),
+        )
+
+        # state = np.array([lin_pos_np, lin_vel_np, ang_pos_np, ang_vel_np, quat_np])
+        return lin_pos_np, lin_vel_np, ang_pos_np, ang_vel_np, quat_np
+
+    async def compute_attitude(
         self,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """state.
@@ -229,71 +274,30 @@ class QuadXBaseEnv(gymnasium.Env):
         - lin_pos (vector of 3 values)
         - quaternion (vector of 4 values)
         """
-        raw_state = self.env.state(0)
+        # build the raw state
+        raw_state =  await self.build_state()
 
         # state breakdown
-        ang_vel = raw_state[0]
-        ang_pos = raw_state[1]
-        lin_vel = raw_state[2]
-        lin_pos = raw_state[3]
+        lin_pos = raw_state[0]
+        lin_vel = raw_state[1]
+        ang_pos = raw_state[2]
+        ang_vel = raw_state[3]
+        quaternion = raw_state[4]
 
-        # quaternion angles
-        quaternion = p.getQuaternionFromEuler(ang_pos)
+        return raw_state
 
-        return ang_vel, ang_pos, lin_vel, lin_pos, quaternion
 
-    def compute_term_trunc_reward(self) -> None:
-        """compute_term_trunc_reward."""
-        raise NotImplementedError
 
-    def compute_base_term_trunc_reward(self) -> None:
-        """compute_base_term_trunc_reward."""
-        # exceed step count
-        if self.step_count > self.max_steps:
-            self.truncation |= True
-
-        # if anything hits the floor, basically game over
-        if np.any(self.env.contact_array[self.env.planeId]):
-            self.reward = -100.0
-            self.info["collision"] = True
-            self.termination |= True
-
-        # exceed flight dome
-        if np.linalg.norm(self.env.state(0)[-1]) > self.flight_dome_size:
-            self.reward = -100.0
-            self.info["out_of_bounds"] = True
-            self.termination |= True
-
-    def step(self, action: np.ndarray) -> tuple[Any, float, bool, bool, dict[str, Any]]:
-        """Steps the environment.
-
+    async def set_action(self, actions) -> None:
+        """Sets the offboard actions [roll, pitch, yaw, thrust]
         Args:
-            action (np.ndarray): action
-
-        Returns:
-            state, reward, termination, truncation, info
-
+            -actions: [-1:1, -1:1, -1:1, -1:1]
         """
-        # unsqueeze the action to be usable in aviary
-        self.action = action.copy()
+        self.drone.offboard.set_actuator_control(actions)
 
-        # reset the reward and set the action
-        self.reward = -0.1
-        self.env.set_setpoint(0, action)
 
-        # step through env, the internal env updates a few steps before the outer env
-        for _ in range(self.env_step_ratio):
-            # if we've already ended, don't continue
-            if self.termination or self.truncation:
-                break
 
-            self.env.step()
 
-            # compute state and done
-            self.compute_state()
-            self.compute_term_trunc_reward()
 
-        # increment step count
-        self.step_count += 1
 
-        return self.state, self.reward, self.termination, self.truncation, self.info
+        

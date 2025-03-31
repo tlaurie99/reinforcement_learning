@@ -7,14 +7,13 @@ import numpy as np
 import aioitertools
 from mavsdk import System
 from mavsdk import telemetry
-from stable_baselines3 import PPO
+# from stable_baselines3 import PPO
 from mavsdk.camera import CameraError
-from drone_hover_env import QuadXHoverEnv
+# from drone_hover_env import DroneHoverEnv
 from mavsdk.camera import Mode, Setting, Option
 from mavsdk.mission import MissionItem, MissionPlan
-from stable_baselines3.common.policies import ActorCriticPolicy
+# from stable_baselines3.common.policies import ActorCriticPolicy
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
-
 
 async def run():
     drone = System()
@@ -30,21 +29,81 @@ async def run():
             print("Global position estimate is good")
             break
 
-    # initial position information
-    async for attitude in drone.telemetry.position():
-        lat1 = attitude.latitude_deg
-        lon1 = attitude.longitude_deg
-        alt1 = attitude.absolute_altitude_m
+    print(f"telmetry: {dir(drone.telemetry.landed_state)}")
+    async for state in drone.telemetry.landed_state():
+        current_state = state
+        print(f"current state is: {current_state}")
         break
+    # initial position information
+    # attitude_euler gives roll, pitch and yaw in degrees
+    # position gives [lat_deg, lon_deg, abs_alt_m, rel_alt_m]
+    # --> relative alt is meters above home position
+    """lin pos"""
+    async for lin_pos in drone.telemetry.position():
+        lat1 = lin_pos.latitude_deg
+        lon1 = lin_pos.longitude_deg
+        alt1 = lin_pos.relative_altitude_m # or absolute_altitude_m
+        break
+    """"""
+    """lin pos body -- reference to home"""
+    async for lin_pos_body in drone.telemetry.position_velocity_ned():
+        north = lin_pos_body.position.north_m
+        east = lin_pos_body.position.east_m
+        down = lin_pos_body.position.down_m 
+        break
+    """"""
+    """lin vel"""
+    async for lin_vel in drone.telemetry.position_velocity_ned():
+        north_vel = lin_vel.velocity.north_m_s
+        east_vel = lin_vel.velocity.east_m_s
+        down_vel = lin_vel.velocity.down_m_s # or absolute_altitude_m
+        break
+    """"""
+    """ang pos"""
+    async for ang_pos in drone.telemetry.attitude_euler():
+        roll = ang_pos.roll_deg
+        pitch = ang_pos.pitch_deg
+        yaw = ang_pos.yaw_deg
+        break
+    """"""
+    """ang vel"""
+    async for ang_vel in drone.telemetry.attitude_angular_velocity_body():
+        roll_rate = ang_vel.roll_rad_s
+        pitch_rate = ang_vel.pitch_rad_s
+        yaw_rate = ang_vel.yaw_rad_s
+        break
+    """"""
+    """quaternion"""
+    # returns [w,x,y,z]
+    async for quat in drone.telemetry.attitude_quaternion():
+        """
+        All rotations and axis systems follow the right-hand rule. The Hamilton quaternion product definition is
+        used. A zero-rotation quaternion is represented by (1,0,0,0). The quaternion could also be written as 
+        w + xi + yj + zk.
+        For more info see: https://en.wikipedia.org/wiki/Quaternion
+        """
+        w = quat.w
+        x = quat.x
+        y = quat.y
+        z = quat.z
+        break
+    """"""
+    """home position"""
+    async for home in drone.telemetry.home():
+        break
+    """"""
+
+
     
     # flight
     print("---Arming Drone---")
     await drone.action.arm()
     await asyncio.sleep(1)
+    
     #cannot sleep > 2 since it has to takeoff within a few seconds of arming
     print("---Taking off---")
     await drone.action.takeoff()
-    await asyncio.sleep(10)
+    await asyncio.sleep(1)
     async for attitude in drone.telemetry.position():
         lat2 = attitude.latitude_deg
         lon2 = attitude.longitude_deg
@@ -53,7 +112,7 @@ async def run():
         print(f"difference in alt: {diff}")
         break
 
-    # neural network will control the roll/pitch/yaw/thrust values to learn how to hover at a point
+        
     await drone.offboard.set_attitude(Attitude(
         roll_deg=0.0,
         pitch_deg=0.0,
@@ -63,7 +122,7 @@ async def run():
 
     # start offboard mode with above set params (network will then change this in a while loop)
     await drone.offboard.start()
-    await asyncio.sleep(20)
+    await asyncio.sleep(2)
     async for attitude in drone.telemetry.position():
         lat3 = attitude.latitude_deg
         lon3 = attitude.longitude_deg
@@ -71,6 +130,7 @@ async def run():
         diff = alt3 - alt2
         print(f"difference in alt: {diff}")
         break
+
     # return to launch point
     await drone.action.return_to_launch()
     await asyncio.sleep(10)
@@ -84,15 +144,4 @@ def load_yaml_config(file_path):
     return config
 
 if __name__ == "__main__":
-    yaml_config_path = r"/workspace/config_file.yaml"
-    config = load_yaml_config(yaml_config_path)
-
-    hover_config = config['hover_env_config']
-    env = QuadXHoverEnv(hover_config)
-    
-    model = PPO(
-        ActorCriticPolicy,
-        env,
-    )
-
     asyncio.run(run())

@@ -1,19 +1,15 @@
-"""QuadX Hover Environment."""
-
 from __future__ import annotations
 
 from typing import Any, Literal
 
 import numpy as np
+import asyncio
 
-from base_env import QuadXBaseEnv
+from base_env import BaseDroneEnv
 
 
-class QuadXHoverEnv(QuadXBaseEnv):
-    """Simple Hover Environment.
-
-    Actions are vp, vq, vr, T, ie: angular rates and thrust.
-    The target is to not crash for the longest time possible.
+class DroneHoverEnv(BaseDroneEnv):
+    """Simple Hover Environment using PX4, Gazebo and MAVSDK
 
     Args:
         sparse_reward (bool): whether to use sparse rewards or not.
@@ -22,24 +18,11 @@ class QuadXHoverEnv(QuadXBaseEnv):
         max_duration_seconds (float): maximum simulation time of the environment.
         angle_representation (Literal["euler", "quaternion"]): can be "euler" or "quaternion".
         agent_hz (int): looprate of the agent to environment interaction.
-        render_mode (None | Literal["human", "rgb_array"]): render_mode
-        render_resolution (tuple[int, int]): render_resolution.
 
     """
 
-    def __init__(
-        self,
-        sparse_reward: bool = False,
-        flight_mode: int = 0,
-        flight_dome_size: float = 3.0,
-        max_duration_seconds: float = 10.0,
-        angle_representation: Literal["euler", "quaternion"] = "quaternion",
-        agent_hz: int = 40,
-        render_mode: None | Literal["human", "rgb_array"] = None,
-        render_resolution: tuple[int, int] = (480, 480),
-    ):
-        """__init__.
-
+    def __init__(self, env_config):
+        """
         Args:
             sparse_reward (bool): whether to use sparse rewards or not.
             flight_mode (int): the flight mode of the UAV
@@ -47,25 +30,22 @@ class QuadXHoverEnv(QuadXBaseEnv):
             max_duration_seconds (float): maximum simulation time of the environment.
             angle_representation (Literal["euler", "quaternion"]): can be "euler" or "quaternion".
             agent_hz (int): looprate of the agent to environment interaction.
-            render_mode (None | Literal["human", "rgb_array"]): render_mode
-            render_resolution (tuple[int, int]): render_resolution.
 
         """
-        super().__init__(
-            flight_mode=flight_mode,
-            flight_dome_size=flight_dome_size,
-            max_duration_seconds=max_duration_seconds,
-            angle_representation=angle_representation,
-            agent_hz=agent_hz,
-            render_mode=render_mode,
-            render_resolution=render_resolution,
-        )
-
+        # Create a dedicated event loop for running async tasks synchronously.
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        # Run async initialization code
+        self.loop.run_until_complete(self.async_init(env_config))
+        self.step_count = 0
+        # sparse reward or not
+        sparse_reward = env_config.get("sparse_reward", False)
         """GYMNASIUM STUFF"""
         self.observation_space = self.combined_space
 
         """ ENVIRONMENT CONSTANTS """
         self.sparse_reward = sparse_reward
+        self.action = np.zeros((4,))
 
     def reset(
         self, *, seed: None | int = None, options: None | dict[str, Any] = dict()
@@ -77,9 +57,10 @@ class QuadXHoverEnv(QuadXBaseEnv):
             options: None
 
         """
-        super().begin_reset(seed, options)
-        super().end_reset(seed, options)
-
+        # reset and step will use a blocking loop control method to ensure they execute
+        self.loop.run_until_complete(super().begin_reset(seed, options))
+        self.loop.run_until_complete(super().end_reset(seed, options))
+        self.compute_state()
         return self.state, self.info
 
     def compute_state(self) -> None:
@@ -93,9 +74,7 @@ class QuadXHoverEnv(QuadXBaseEnv):
         - previous_action (vector of 4 values)
         - auxiliary information (vector of 4 values)
         """
-        ang_vel, ang_pos, lin_vel, lin_pos, quaternion = super().compute_attitude()
-        aux_state = super().compute_auxiliary()
-
+        lin_pos, lin_vel, ang_pos, ang_vel, quaternion = self.loop.run_until_complete(super().compute_attitude())
         # combine everything
         if self.angle_representation == 0:
             self.state = np.concatenate(
@@ -105,34 +84,94 @@ class QuadXHoverEnv(QuadXBaseEnv):
                     lin_vel,
                     lin_pos,
                     self.action,
-                    aux_state,
                 ],
                 axis=-1,
             )
         elif self.angle_representation == 1:
             self.state = np.concatenate(
-                [ang_vel, quaternion, lin_vel, lin_pos, self.action, aux_state], axis=-1
+                [
+                    ang_vel, 
+                    quaternion, 
+                    lin_vel, 
+                    lin_pos, 
+                    self.action,
+                ], 
+                axis=-1,
             )
 
     def compute_term_trunc_reward(self) -> None:
+        """compute_term_trunc_reward."""
+        raise NotImplementedError
+
+    def compute_base_term_trunc_reward(self) -> None:
+        """compute_base_term_trunc_reward."""
+        # exceed step count
+        if self.step_count > self.max_steps:
+            self.truncation |= True
+
+        # # if anything hits the floor, basically game over
+        # if np.any(self.env.contact_array[self.env.planeId]):
+        #     self.reward = -100.0
+        #     self.info["collision"] = True
+        #     self.termination |= True
+
+        # # exceed flight dome
+        # if np.linalg.norm(self.env.state(0)[-1]) > self.flight_dome_size:
+        #     self.reward = -100.0
+        #     self.info["out_of_bounds"] = True
+        #     self.termination |= True
+
+    def step(self, action: np.ndarray) -> tuple[Any, float, bool, bool, dict[str, Any]]:
+        """Steps the environment.
+
+        Args:
+            action (np.ndarray): action
+
+        Returns:
+            state, reward, termination, truncation, info
+
+        """
+        self.action = action.copy()
+        print(f"action is: {self.action}")
+
+        # reset the reward and set the action
+        self.reward = -0.1
+        self.loop.run_until_complete(self.set_action(self.action))
+        
+
+        # step through env, the internal env updates a few steps before the outer env
+        for _ in range(self.env_step_ratio):
+            # if we've already ended, don't continue
+            if self.termination or self.truncation:
+                break
+            # self.loop.run_until_complete(self.compute_state)
+            self.compute_state()
+            self.compute_term_trunc_reward()
+
+        # increment step count
+        self.step_count += 1
+
+        return self.state, self.reward, self.termination, self.truncation, self.info
+
+    def compute_term_trunc_reward(self) -> None:
         """Computes the termination, truncation, and reward of the current timestep."""
-        super().compute_base_term_trunc_reward()
+        self.compute_base_term_trunc_reward()
         if not self.sparse_reward:
             # distance from 0, 0, 1 hover point
-            linear_distance = np.linalg.norm(
-                self.env.state(0)[-1] - np.array([0.0, 0.0, 1.0])
-            )
+            # linear_distance = np.linalg.norm(
+            #     self.env.state(0)[-1] - np.array([0.0, 0.0, 1.0])
+            # )
             # Negative Reward For High Yaw rate, To prevent high yaw while training
-            yaw_rate = abs(
-                self.env.state(0)[0][2]
-            )  # Assuming z-axis is the last component
-            yaw_rate_penalty = 0.01 * yaw_rate**2  # Add penalty for high yaw rate
-            self.reward -= (
-                yaw_rate_penalty  # You can adjust the coefficient (0.01) as needed
-            )
+            # yaw_rate = abs(
+            #     self.env.state(0)[0][2]
+            #)  # Assuming z-axis is the last component
+            # yaw_rate_penalty = 0.01 * yaw_rate**2  # Add penalty for high yaw rate
+            # self.reward -= (
+            #     yaw_rate_penalty  # You can adjust the coefficient (0.01) as needed
+            # )
 
             # how far are we from 0 roll pitch
-            angular_distance = np.linalg.norm(self.env.state(0)[1][:2])
+            # angular_distance = np.linalg.norm(self.env.state(0)[1][:2])
 
-            self.reward -= linear_distance + angular_distance
+            # self.reward -= linear_distance + angular_distance
             self.reward += 1.0
