@@ -14,8 +14,6 @@ from mavsdk.camera import Mode, Setting, Option
 from mavsdk.mission import MissionItem, MissionPlan
 from stable_baselines3.common.policies import ActorCriticPolicy
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
-
-"""figuring out action selection being none"""
     
 
 def load_yaml_config(file_path):
