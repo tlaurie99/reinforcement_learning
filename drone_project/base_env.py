@@ -27,7 +27,7 @@ class BaseDroneEnv(gymnasium.Env):
     """Base environment that exposes PX4 / mavsdk to the gym API"""
 
     async def async_init(self, env_config):
-        agent_hz = env_config.get("agent_hz", 40)
+        agent_hz = env_config.get("agent_hz", 50)
         flight_mode = env_config.get("flight_mode", 0)
         flight_dome_size = env_config.get("flight_dome_size", 50)
         max_duration_seconds = env_config.get("max_duration_seconds", 45)
@@ -35,8 +35,8 @@ class BaseDroneEnv(gymnasium.Env):
         start_orn = env_config.get("start_orn", np.array([[0.0, 0.0, 0.0]]))
         angle_representation = env_config.get("angle_representation", "quaternion")
         
-        """sim rate depends on GZ/PX4 -- look up"""
-        sim_rate = 200
+        """controller updates are 250 hz"""
+        sim_rate = 250
         
         if sim_rate % agent_hz != 0:
             lowest = int(sim_rate / (int(sim_rate / agent_hz) + 1))
