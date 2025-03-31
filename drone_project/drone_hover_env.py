@@ -1,10 +1,6 @@
-from __future__ import annotations
-
-from typing import Any, Literal
-
-import numpy as np
 import asyncio
-
+import numpy as np
+from typing import Any
 from base_env import BaseDroneEnv
 
 
@@ -12,18 +8,7 @@ class DroneHoverEnv(BaseDroneEnv):
     """Simple Hover Environment using PX4, Gazebo and MAVSDK
 
     Args:
-        sparse_reward (bool): whether to use sparse rewards or not.
-        flight_mode (int): the flight mode of the UAV
-        flight_dome_size (float): size of the allowable flying area.
-        max_duration_seconds (float): maximum simulation time of the environment.
-        angle_representation (Literal["euler", "quaternion"]): can be "euler" or "quaternion".
-        agent_hz (int): looprate of the agent to environment interaction.
-
-    """
-
-    def __init__(self, env_config):
-        """
-        Args:
+        env_config:
             sparse_reward (bool): whether to use sparse rewards or not.
             flight_mode (int): the flight mode of the UAV
             flight_dome_size (float): size of the allowable flying area.
@@ -31,8 +16,12 @@ class DroneHoverEnv(BaseDroneEnv):
             angle_representation (Literal["euler", "quaternion"]): can be "euler" or "quaternion".
             agent_hz (int): looprate of the agent to environment interaction.
 
+    """
+
+    def __init__(self, env_config):
+        """Initialize the Hover env and the async base env using a dedicated loop
         """
-        # Create a dedicated event loop for running async tasks synchronously.
+        # Create a dedicated event loop for running async tasks synchronously
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         # Run async initialization code
@@ -47,6 +36,11 @@ class DroneHoverEnv(BaseDroneEnv):
         self.sparse_reward = sparse_reward
         self.action = np.zeros((4,))
 
+        """ REWARD STUFF """
+        self.lin_pos = np.zeros((3,))
+        self.ang_vel = np.zeros((3,))
+        self.ang_pos = np.zeros((3,))
+        
     def reset(
         self, *, seed: None | int = None, options: None | dict[str, Any] = dict()
     ) -> tuple[np.ndarray, dict[str, Any]]:
@@ -75,6 +69,10 @@ class DroneHoverEnv(BaseDroneEnv):
         - auxiliary information (vector of 4 values)
         """
         lin_pos, lin_vel, ang_pos, ang_vel, quaternion = self.loop.run_until_complete(super().compute_attitude())
+
+        self.lin_pos = lin_pos
+        self.ang_vel = ang_vel
+        self.ang_pos = ang_pos
         # combine everything
         if self.angle_representation == 0:
             self.state = np.concatenate(
@@ -109,17 +107,17 @@ class DroneHoverEnv(BaseDroneEnv):
         if self.step_count > self.max_steps:
             self.truncation |= True
 
-        # # if anything hits the floor, basically game over
-        # if np.any(self.env.contact_array[self.env.planeId]):
-        #     self.reward = -100.0
-        #     self.info["collision"] = True
-        #     self.termination |= True
+        # check to see if the drone is ever on the ground
+        if self.drone.telemetry.landed_state == "ON_GROUND":
+            self.reward = -100
+            self.info['collision'] = True
+            self.termination |= True
 
-        # # exceed flight dome
-        # if np.linalg.norm(self.env.state(0)[-1]) > self.flight_dome_size:
-        #     self.reward = -100.0
-        #     self.info["out_of_bounds"] = True
-        #     self.termination |= True
+        # # exceed flight space
+        if np.linalg.norm(self.lin_pos[2]) > self.flight_dome_size:
+            self.reward = -100.0
+            self.info["out_of_bounds"] = True
+            self.termination |= True
 
     def step(self, action: np.ndarray) -> tuple[Any, float, bool, bool, dict[str, Any]]:
         """Steps the environment.
@@ -132,23 +130,16 @@ class DroneHoverEnv(BaseDroneEnv):
 
         """
         self.action = action.copy()
-        print(f"action is: {self.action}")
 
         # reset the reward and set the action
         self.reward = -0.1
         self.loop.run_until_complete(self.set_action(self.action))
         
-
-        # step through env, the internal env updates a few steps before the outer env
         for _ in range(self.env_step_ratio):
-            # if we've already ended, don't continue
             if self.termination or self.truncation:
                 break
-            # self.loop.run_until_complete(self.compute_state)
             self.compute_state()
             self.compute_term_trunc_reward()
-
-        # increment step count
         self.step_count += 1
 
         return self.state, self.reward, self.termination, self.truncation, self.info
@@ -157,21 +148,11 @@ class DroneHoverEnv(BaseDroneEnv):
         """Computes the termination, truncation, and reward of the current timestep."""
         self.compute_base_term_trunc_reward()
         if not self.sparse_reward:
-            # distance from 0, 0, 1 hover point
-            # linear_distance = np.linalg.norm(
-            #     self.env.state(0)[-1] - np.array([0.0, 0.0, 1.0])
-            # )
-            # Negative Reward For High Yaw rate, To prevent high yaw while training
-            # yaw_rate = abs(
-            #     self.env.state(0)[0][2]
-            #)  # Assuming z-axis is the last component
-            # yaw_rate_penalty = 0.01 * yaw_rate**2  # Add penalty for high yaw rate
-            # self.reward -= (
-            #     yaw_rate_penalty  # You can adjust the coefficient (0.01) as needed
-            # )
+            yaw_rate_penalty = (abs(self.ang_vel[2])**2) * 0.01
+            self.reward -= (yaw_rate_penalty)
+            
+            linear_distance = np.linalg.norm(self.lin_pos - np.array([0.0, 0.0, 10.0]))
+            angular_distance = np.linalg.norm(self.ang_pos[:2])
 
-            # how far are we from 0 roll pitch
-            # angular_distance = np.linalg.norm(self.env.state(0)[1][:2])
-
-            # self.reward -= linear_distance + angular_distance
+            self.reward -= linear_distance + angular_distance
             self.reward += 1.0
