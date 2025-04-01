@@ -20,8 +20,8 @@ from mavsdk.camera import CameraError
 from mavsdk.camera import Mode, Setting, Option
 from mavsdk.mission import MissionItem, MissionPlan
 from stable_baselines3.common.policies import ActorCriticPolicy
+from mavsdk.offboard import ActuatorControl, ActuatorControlGroup
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
-
 
 class BaseDroneEnv(gymnasium.Env):
     """Base environment that exposes PX4 / mavsdk to the gym API"""
@@ -287,9 +287,16 @@ class BaseDroneEnv(gymnasium.Env):
     async def set_action(self, actions) -> None:
         """Sets the offboard actions [roll, pitch, yaw, thrust]
         Args:
-            -actions: [-1:1, -1:1, -1:1, -1:1]
+            -actions: [-1:1, -1:1, -1:1, -1:1, 0, 0, 0, 0]
         """
-        self.drone.offboard.set_actuator_control(actions)
+        control_values = self.action[:4].tolist()
+        # API expects 8
+        await self.check_drone_status()
+        padded_controls = control_values + [0.0] * (8 - len(control_values))
+        action_group = ActuatorControlGroup(controls=padded_controls)
+        actuator_control = ActuatorControl(groups=[action_group])
+        await self.drone.offboard.set_actuator_control(actuator_control)
+        print(f"after: {await self.check_drone_status()}")
 
 
 
