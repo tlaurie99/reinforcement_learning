@@ -17,17 +17,24 @@ from mavsdk import System
 from mavsdk import telemetry
 from stable_baselines3 import PPO
 from mavsdk.camera import CameraError
+from mavsdk.telemetry import FlightMode, LandedState
 from mavsdk.camera import Mode, Setting, Option
 from mavsdk.mission import MissionItem, MissionPlan
+from mavsdk.offboard import Attitude, OffboardError
 from stable_baselines3.common.policies import ActorCriticPolicy
 from mavsdk.offboard import ActuatorControl, ActuatorControlGroup
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
+
+"""
+GO BACK TO GPT AND SEE HOW TO SET UP A SYNCRONOUS WRAPPER FOR ASYNC ENVS
+"""
+
 
 class BaseDroneEnv(gymnasium.Env):
     """Base environment that exposes PX4 / mavsdk to the gym API"""
 
     async def async_init(self, env_config):
-        agent_hz = env_config.get("agent_hz", 50)
+        agent_hz = env_config.get("agent_hz", 40)
         flight_mode = env_config.get("flight_mode", 0)
         flight_dome_size = env_config.get("flight_dome_size", 50)
         max_duration_seconds = env_config.get("max_duration_seconds", 45)
@@ -35,8 +42,8 @@ class BaseDroneEnv(gymnasium.Env):
         start_orn = env_config.get("start_orn", np.array([[0.0, 0.0, 0.0]]))
         angle_representation = env_config.get("angle_representation", "quaternion")
         
-        """controller updates are 250 hz"""
-        sim_rate = 250
+        """sim rate depends on GZ/PX4 -- look up"""
+        sim_rate = 200
         
         if sim_rate % agent_hz != 0:
             lowest = int(sim_rate / (int(sim_rate / agent_hz) + 1))
@@ -59,9 +66,24 @@ class BaseDroneEnv(gymnasium.Env):
         )
 
         # action space setup
-        high = np.ones((4,))
-        low = -high
-        self.action_space = spaces.Box(low=low, high=high, dtype=np.float64)
+        # high = np.ones((4,))
+        # low = -high
+        # self.action_space = spaces.Box(low=low, high=high, dtype=np.float64)
+        self.action_space = spaces.Box(low = np.array(
+            [
+                -45,
+                -45,
+                -180,
+                0,
+            ]
+        ), high = np.array(
+            [
+                45,
+                45,
+                180,
+                1
+            ]
+        ), dtype=np.float64)
 
         # the whole implicit state space = attitude + previous action + auxiliary 
         # information
@@ -74,6 +96,9 @@ class BaseDroneEnv(gymnasium.Env):
             ),
             dtype=np.float64,
         )
+
+        self.reward = 0.0
+        self.info = {}
 
         """ ENVIRONMENT CONSTANTS """
         self.start_pos = start_pos
@@ -97,13 +122,14 @@ class BaseDroneEnv(gymnasium.Env):
         await self.connect_drone()
         await self.check_drone_status()
         self.home_position = await self.get_init_position()
+        self.mode= None
 
     async def set_offboard_params(self):
         await self.drone.offboard.set_attitude(Attitude(
             roll_deg=0.0,
             pitch_deg=0.0,
             yaw_deg=0.0,
-            thrust_value=0.5
+            thrust_value=0.0
         ))
         print("--Set offboard params--")
 
@@ -147,14 +173,16 @@ class BaseDroneEnv(gymnasium.Env):
         self.info["collision"] = False
         self.info["env_complete"] = False
 
+        
         async for state in self.drone.telemetry.landed_state():
             options['current_state'] = state
             break
-        if not options['current_state'] == "ON_GROUND":
+        if not options['current_state'] == LandedState.ON_GROUND:
             await self.drone.action.return_to_launch()
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             print("---Landing---")
             await self.drone.action.land()
+            await asyncio.sleep(10)
 
         
 
@@ -188,11 +216,14 @@ class BaseDroneEnv(gymnasium.Env):
             else:
                 print("---Arming Drone---")
                 await self.drone.action.arm()
-                await asyncio.sleep(1)
-                print("---Taking off---")
-                await self.drone.action.takeoff()
-                await asyncio.sleep(5)
-                await self.set_offboard_params()
+                print("---Taking off (not reall)---")
+                # await self.drone.action.takeoff()
+                try:
+                    await self.set_offboard_params()
+                except OffboardError as error:
+                    print(f"starting offboard failed with error: {error._result.result}")
+                    print("---disarming---")
+                    await self.drone.disarm()
                 await self.drone.offboard.start()
                 break
 
@@ -215,7 +246,7 @@ class BaseDroneEnv(gymnasium.Env):
             async for lin_pos in self.drone.telemetry.position():
                 lat1 = lin_pos.latitude_deg
                 lon1 = lin_pos.longitude_deg
-                alt1 = lin_pos.relative_altitude_m
+                alt1 = lin_pos.absolute_altitude_m 
                 return np.array([lat1, lon1, alt1])   
 
         async def get_lin_vel():
@@ -254,8 +285,6 @@ class BaseDroneEnv(gymnasium.Env):
             get_ang_vel(),
             get_quat(),
         )
-
-        # state = np.array([lin_pos_np, lin_vel_np, ang_pos_np, ang_vel_np, quat_np])
         return lin_pos_np, lin_vel_np, ang_pos_np, ang_vel_np, quat_np
 
     async def compute_attitude(
@@ -282,21 +311,24 @@ class BaseDroneEnv(gymnasium.Env):
 
         return raw_state
 
+    async def _continuous_offboard_sender(self):
+        try:
+            while True:
+                await self.set_action(self.action)
+                await asyncio.sleep(0.1)
+        except Exception as e:
+            print(f"Offboard sender failed with: {e}")
+
 
 
     async def set_action(self, actions) -> None:
         """Sets the offboard actions [roll, pitch, yaw, thrust]
         Args:
-            -actions: [-1:1, -1:1, -1:1, -1:1, 0, 0, 0, 0]
+            -actions: [-1:1, -1:1, -1:1, -1:1]
         """
-        control_values = self.action[:4].tolist()
-        # API expects 8
-        await self.check_drone_status()
-        padded_controls = control_values + [0.0] * (8 - len(control_values))
-        action_group = ActuatorControlGroup(controls=padded_controls)
-        actuator_control = ActuatorControl(groups=[action_group])
-        await self.drone.offboard.set_actuator_control(actuator_control)
-        print(f"after: {await self.check_drone_status()}")
+        input_actions = self.action.tolist()
+        # print(f"input actions: {input_actions}")
+        await self.drone.offboard.set_attitude(Attitude(*input_actions))
 
 
 
