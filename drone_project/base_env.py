@@ -25,10 +25,6 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 from mavsdk.offboard import ActuatorControl, ActuatorControlGroup
 from mavsdk.offboard import OffboardError, PositionNedYaw, Attitude
 
-"""
-GO BACK TO GPT AND SEE HOW TO SET UP A SYNCRONOUS WRAPPER FOR ASYNC ENVS
-"""
-
 
 class BaseDroneEnv(gymnasium.Env):
     """Base environment that exposes PX4 / mavsdk to the gym API"""
