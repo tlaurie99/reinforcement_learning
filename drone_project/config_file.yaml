@@ -5,14 +5,19 @@ hover_height: 1.524
 hover_env_config:
     sparse_reward: False
     flight_mode: 0
-    flight_dome_size: 10
-    max_duration_seconds: 30
+    flight_dome_size: 100
+    max_duration_seconds: 10
     angle_representation: "quaternion"
-    agent_hz: 40
+    agent_hz: 50
     
 
 SB3_config:
-    timesteps: 100
+    timesteps: 10000
+    train_path: "/sb3_results/"
     hypers:
         clip_param: 0.20
+        n_steps: 512
+        batch_size: 64
+        n_epochs: 15
+        ent_coef: 0.001
         
